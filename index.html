@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 MPU6050 BLE Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(5px); }
+        .modal-content { background-color: #ffffff; margin: 15% auto; padding: 24px; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 500px; animation: fadeIn 0.3s ease-in-out; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .live-feed-box { background-color: #1f2937; color: #ffffff; font-family: 'Courier New', Courier, monospace; height: 200px; overflow-y: scroll; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-6xl w-full flex flex-col space-y-6">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">MPU6050 BLE Sensor Viewer</h1>
+        <p id="status-message" class="text-center text-sm text-gray-500">
+            Please connect to your ESP32 device to start receiving data.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
+                Connect to ESP32
+            </button>
+            <button id="zeroButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 transform hover:scale-105 hidden">
+                Zero Sensors
+            </button>
+        </div>
+
+        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Accelerometer (m/s²)</h2>
+                <div class="space-y-2 text-gray-600 font-medium">
+                    <p>X: <span id="accelX" class="font-mono text-gray-800">--</span></p>
+                    <p>Y: <span id="accelY" class="font-mono text-gray-800">--</span></p>
+                    <p>Z: <span id="accelZ" class="font-mono text-gray-800">--</span></p>
+                </div>
+            </div>
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Gyroscope (rad/s)</h2>
+                <div class="space-y-2 text-gray-600 font-medium">
+                    <p>X: <span id="gyroX" class="font-mono text-gray-800">--</span></p>
+                    <p>Y: <span id="gyroY" class="font-mono text-gray-800">--</span></p>
+                    <p>Z: <span id="gyroZ" class="font-mono text-gray-800">--</span></p>
+                </div>
+            </div>
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Temperature (°C)</h2>
+                <p class="text-gray-600 font-medium">Value: <span id="temperature" class="font-mono text-gray-800 text-2xl">--</span></p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-xl">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">Accelerometer Live Graph</h2>
+            <div class="relative h-80">
+                <canvas id="accelChartCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-xl">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">Gyroscope Live Graph</h2>
+            <div class="relative h-80">
+                <canvas id="gyroChartCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-xl">
+            <h2 class="text-lg font-semibold text-gray-700 mb-2">Live Data Feed (JSON)</h2>
+            <pre id="live-feed" class="live-feed-box p-4 rounded-xl text-xs overflow-auto"></pre>
+        </div>
+    </div>
+    <div id="alert-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('alert-modal').style.display='none'">&times;</span>
+            <h3 class="text-xl font-bold mb-2">Information</h3>
+            <p id="alert-message" class="text-gray-700 whitespace-pre-line"></p>
+        </div>
+    </div>
+    <script>
+        // --- Custom Alert Function ---
+        function showCustomAlert(message) {
+            const modal = document.getElementById('alert-modal');
+            const alertMessage = document.getElementById('alert-message');
+            alertMessage.textContent = message;
+            modal.style.display = 'block';
+        }
+
+        // --- BLE UUIDs and Device Name ---
+        const SERVICE_UUID = "12345678-1234-1234-1234-123456789abc";
+        const CHARACTERISTIC_UUID = "87654321-4321-4321-4321-cba987654321";
+        const DEVICE_NAME = "ESP32_MPU6050_BLE";
+
+        // --- DOM Elements ---
+        const connectButton = document.getElementById('connectButton');
+        const zeroButton = document.getElementById('zeroButton');
+        const statusMessage = document.getElementById('status-message');
+        const accelX = document.getElementById('accelX');
+        const accelY = document.getElementById('accelY');
+        const accelZ = document.getElementById('accelZ');
+        const gyroX = document.getElementById('gyroX');
+        const gyroY = document.getElementById('gyroY');
+        const gyroZ = document.getElementById('gyroZ');
+        const temperature = document.getElementById('temperature');
+        const liveFeed = document.getElementById('live-feed');
+
+        // --- Global BLE Objects ---
+        let bleDevice;
+        let bleCharacteristic;
+
+        // --- Data Processing Constants and Variables ---
+        const SMOOTHING_WINDOW_SIZE = 7;
+        const VISIBLE_DATA_POINTS = 500;
+        const Y_BUFFER_PERCENTAGE = 0.05;
+        const MIN_Y_RANGE = 3;
+        
+        let accelHistory = { x: [], y: [], z: [] };
+        let gyroHistory = { x: [], y: [], z: [] };
+
+        // --- Sensor Offsets (Accelerometer and Gyroscope) ---
+        // These are the biases to be subtracted from the raw sensor data
+        // Initial values are zero, but will be set by the zeroing function
+        let offsets = {
+            accel: { x: 0, y: 0, z: 9.81 }, // Accel Z offset is gravity (g)
+            gyro: { x: 0, y: 0, z: 0 }
+        };
+
+        // --- Data Smoothing and Calculation ---
+        function smoothData(rawData, historyBuffer) {
+            historyBuffer.x.push(rawData.x);
+            historyBuffer.y.push(rawData.y);
+            historyBuffer.z.push(rawData.z);
+            if (historyBuffer.x.length > SMOOTHING_WINDOW_SIZE) {
+                historyBuffer.x.shift();
+                historyBuffer.y.shift();
+                historyBuffer.z.shift();
+            }
+            const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+            const avg = (arr) => sum(arr) / arr.length;
+            return {
+                x: avg(historyBuffer.x),
+                y: avg(historyBuffer.y),
+                z: avg(historyBuffer.z)
+            };
+        }
+        
+        // --- Chart.js Setup (Refactored for clarity) ---
+        function createChart(ctx, labelPrefix, yAxisLabel) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: `${labelPrefix} X`,
+                        data: [],
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        tension: 0.4,
+                    }, {
+                        label: `${labelPrefix} Y`,
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        tension: 0.4,
+                    }, {
+                        label: `${labelPrefix} Z`,
+                        data: [],
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        tension: 0.4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
+                        tooltip: { callbacks: { title: (tooltipItems) => `Data Point: ${tooltipItems[0].label}` } }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Data Point Index' }, ticks: { maxTicksLimit: 20 }, grid: { display: true } },
+                        y: {
+                            title: { display: true, text: yAxisLabel },
+                            min: -MIN_Y_RANGE,
+                            max: MIN_Y_RANGE,
+                            ticks: { stepSize: 1 },
+                            grid: {
+                                color: (context) => context.tick.value === 0 ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.1)',
+                                lineWidth: (context) => context.tick.value === 0 ? 2 : 1
+                            }
+                        }
+                    },
+                    elements: { point: { radius: 0 } }
+                }
+            });
+        }
+
+        const accelChart = createChart(document.getElementById('accelChartCanvas').getContext('2d'), 'Accel', 'Value (m/s²)');
+        const gyroChart = createChart(document.getElementById('gyroChartCanvas').getContext('2d'), 'Gyro', 'Value (rad/s)');
+
+        // --- Offset Calculation Logic ---
+        const ZEROING_SAMPLES = 25;
+        let zeroingSampleCount = 0;
+        let zeroingAccelSamples = { x: [], y: [], z: [] };
+        let zeroingGyroSamples = { x: [], y: [], z: [] };
+        let isZeroing = false;
+
+        function startZeroing() {
+            if (isZeroing) return;
+            isZeroing = true;
+            zeroingSampleCount = 0;
+            zeroingAccelSamples = { x: [], y: [], z: [] };
+            zeroingGyroSamples = { x: [], y: [], z: [] };
+            zeroButton.disabled = true;
+            zeroButton.textContent = 'Zeroing...';
+            statusMessage.textContent = 'Zeroing sensors... Please keep the device flat and still for 5 seconds.';
+        }
+
+        function calculateNewOffsets(rawAccel, rawGyro) {
+            if (!isZeroing) return;
+
+            zeroingAccelSamples.x.push(rawAccel.x);
+            zeroingAccelSamples.y.push(rawAccel.y);
+            zeroingAccelSamples.z.push(rawAccel.z);
+            zeroingGyroSamples.x.push(rawGyro.x);
+            zeroingGyroSamples.y.push(rawGyro.y);
+            zeroingGyroSamples.z.push(rawGyro.z);
+            zeroingSampleCount++;
+
+            statusMessage.textContent = `Zeroing sensors... Sample ${zeroingSampleCount}/${ZEROING_SAMPLES}`;
+
+            if (zeroingSampleCount >= ZEROING_SAMPLES) {
+                isZeroing = false;
+                zeroButton.disabled = false;
+                zeroButton.textContent = 'Zero Sensors';
+                statusMessage.textContent = 'Sensor zeroing complete. New offsets applied.';
+                
+                const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+                const avg = (arr) => sum(arr) / arr.length;
+                
+                // Calculate and store new offsets
+                offsets.accel.x = avg(zeroingAccelSamples.x);
+                offsets.accel.y = avg(zeroingAccelSamples.y);
+                offsets.accel.z = avg(zeroingAccelSamples.z);
+                offsets.gyro.x = avg(zeroingGyroSamples.x);
+                offsets.gyro.y = avg(zeroingGyroSamples.y);
+                offsets.gyro.z = avg(zeroingGyroSamples.z);
+
+                // Reset buffers
+                zeroingSampleCount = 0;
+                zeroingAccelSamples = { x: [], y: [], z: [] };
+                zeroingGyroSamples = { x: [], y: [], z: [] };
+            }
+        }
+
+        // --- Main Data Handling Function ---
+        function handleCharacteristicValueChanged(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const receivedString = decoder.decode(value);
+            liveFeed.textContent = receivedString;
+            liveFeed.scrollTop = liveFeed.scrollHeight;
+
+            try {
+                const sensorData = JSON.parse(receivedString);
+
+                // If zeroing is in progress, collect samples and calculate new offsets
+                if (isZeroing) {
+                    calculateNewOffsets(sensorData.accel, sensorData.gyro);
+                }
+
+                // Apply the smoothing and offsets to the data before display/graphing
+                const smoothedAccel = smoothData(sensorData.accel, accelHistory);
+                const smoothedGyro = smoothData(sensorData.gyro, gyroHistory);
+                
+                const zeroedAccel = {
+                    x: smoothedAccel.x - offsets.accel.x,
+                    y: smoothedAccel.y - offsets.accel.y,
+                    z: smoothedAccel.z - offsets.accel.z
+                };
+                
+                const zeroedGyro = {
+                    x: smoothedGyro.x - offsets.gyro.x,
+                    y: smoothedGyro.y - offsets.gyro.y,
+                    z: smoothedGyro.z - offsets.gyro.z
+                };
+
+                // Update the displayed values
+                accelX.textContent = zeroedAccel.x.toFixed(2);
+                accelY.textContent = zeroedAccel.y.toFixed(2);
+                accelZ.textContent = zeroedAccel.z.toFixed(2);
+                gyroX.textContent = zeroedGyro.x.toFixed(2);
+                gyroY.textContent = zeroedGyro.y.toFixed(2);
+                gyroZ.textContent = zeroedGyro.z.toFixed(2);
+                temperature.textContent = sensorData.temp.toFixed(1);
+
+                if (!isZeroing) {
+                    statusMessage.textContent = 'Receiving live data...';
+                }
+
+                // --- Update Charts (Refactored for both charts) ---
+                function updateChart(chartInstance, dataX, dataY, dataZ) {
+                    chartInstance.data.datasets[0].data.push(dataX);
+                    chartInstance.data.datasets[1].data.push(dataY);
+                    chartInstance.data.datasets[2].data.push(dataZ);
+
+                    // Dynamic Y-axis Scaling
+                    const allData = [...chartInstance.data.datasets[0].data, ...chartInstance.data.datasets[1].data, ...chartInstance.data.datasets[2].data];
+                    const maxY = Math.max(...allData.map(Math.abs));
+                    const chartMaxY = Math.max(maxY * (1 + Y_BUFFER_PERCENTAGE), MIN_Y_RANGE);
+                    chartInstance.options.scales.y.min = -chartMaxY;
+                    chartInstance.options.scales.y.max = chartMaxY;
+
+                    // Manage Data Points and X-axis Labels
+                    if (chartInstance.data.datasets[0].data.length > VISIBLE_DATA_POINTS) {
+                        const pointsToRemove = chartInstance.data.datasets[0].data.length - VISIBLE_DATA_POINTS;
+                        chartInstance.data.datasets.forEach(dataset => dataset.data.splice(0, pointsToRemove));
+                        chartInstance.data.labels.splice(0, pointsToRemove);
+                    }
+                    const currentDataLength = chartInstance.data.datasets[0].data.length;
+                    chartInstance.data.labels = Array.from({ length: currentDataLength }, (_, i) => i);
+                    
+                    chartInstance.update('none');
+                }
+
+                updateChart(accelChart, zeroedAccel.x, zeroedAccel.y, zeroedAccel.z);
+                updateChart(gyroChart, zeroedGyro.x, zeroedGyro.y, zeroedGyro.z);
+                
+            } catch (error) {
+                console.error("Error parsing JSON:", error);
+                showCustomAlert("Error parsing sensor data. Received: " + receivedString);
+            }
+        }
+
+        // --- BLE Connection and Disconnection ---
+        function onDisconnected(event) {
+            console.log('Device disconnected:', event.target.name);
+            statusMessage.textContent = 'Disconnected. Click connect to try again.';
+            connectButton.textContent = 'Connect to ESP32';
+            connectButton.disabled = false;
+            connectButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+            connectButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            zeroButton.classList.add('hidden');
+            isZeroing = false;
+            zeroButton.disabled = false;
+            zeroButton.textContent = 'Zero Sensors';
+        }
+
+        async function connectToBle() {
+            try {
+                connectButton.textContent = 'Connecting...';
+                connectButton.disabled = true;
+                statusMessage.textContent = 'Requesting BLE device...';
+
+                if (!navigator.bluetooth) {
+                    throw new Error("Web Bluetooth is not supported by this browser. Please use Chrome, Edge, or a similar browser.");
+                }
+
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: DEVICE_NAME }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                statusMessage.textContent = 'Connecting to GATT server...';
+                const server = await bleDevice.gatt.connect();
+                statusMessage.textContent = 'Getting primary service...';
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                statusMessage.textContent = 'Getting characteristic...';
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                statusMessage.textContent = 'Starting notifications...';
+                await bleCharacteristic.startNotifications();
+                bleCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+
+                statusMessage.textContent = 'Successfully connected and receiving data.';
+                connectButton.textContent = 'Connected';
+                connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                zeroButton.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Bluetooth connection failed:", error);
+                let errorMessage = "An unknown error occurred.";
+                if (error.name === "NotFoundError") {
+                    errorMessage = "No matching device found. Make sure your ESP32 is powered on and advertising.";
+                } else if (error.name === "NetworkError") {
+                    errorMessage = "Network connection failed. Your BLE device might be out of range.";
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                showCustomAlert("Connection Error: " + errorMessage);
+                connectButton.textContent = 'Connect to ESP32';
+                connectButton.disabled = false;
+                statusMessage.textContent = 'Connection failed. Please try again.';
+                connectButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                connectButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                zeroButton.classList.add('hidden');
+            }
+        }
+
+        // --- Assign event listeners ---
+        connectButton.addEventListener('click', connectToBle);
+        zeroButton.addEventListener('click', startZeroing);
+
+        // --- Close custom alert when clicking outside ---
+        window.onclick = function(event) {
+            const modal = document.getElementById('alert-modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
