@@ -7,20 +7,79 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(5px); }
-        .modal-content { background-color: #ffffff; margin: 15% auto; padding: 24px; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 500px; animation: fadeIn 0.3s ease-in-out; }
-        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
-        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-        .live-feed-box { background-color: #1f2937; color: #ffffff; font-family: 'Courier New', Courier, monospace; height: 200px; overflow-y: scroll; }
-        .hidden { display: none; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #121212; 
+            color: #e0e0e0; 
+        }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.7); 
+            backdrop-filter: blur(5px); 
+        }
+        .modal-content { 
+            background-color: #1f1f1f; 
+            margin: 15% auto; 
+            padding: 24px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 15px rgba(0,0,0,0.3); 
+            max-width: 500px; 
+            animation: fadeIn 0.3s ease-in-out; 
+            color: #e0e0e0; 
+        }
+        .close-button { 
+            color: #888; 
+            float: right; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .close-button:hover, .close-button:focus { 
+            color: #ccc; 
+            text-decoration: none; 
+            cursor: pointer; 
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(-20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .live-feed-box { 
+            background-color: #2c2c2c; 
+            color: #a0a0a0; 
+            font-family: 'Courier New', Courier, monospace; 
+            height: 200px; 
+            overflow-y: scroll; 
+        }
+        .hidden { 
+            display: none; 
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+        @media (max-width: 1280px) {
+            .data-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-6xl w-full flex flex-col space-y-6">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">MPU6050 BLE Sensor Viewer</h1>
-        <p id="status-message" class="text-center text-sm text-gray-500">
+<body class="bg-gray-900 min-h-screen flex flex-col items-center p-4 sm:p-8">
+    <div class="max-w-6xl w-full flex flex-col gap-6">
+        <h1 class="text-3xl font-bold text-center text-gray-100 mb-4">MPU6050 BLE Sensor Viewer</h1>
+        <p id="status-message" class="text-center text-sm text-gray-400">
             Please connect to your ESP32 device to start receiving data.
         </p>
         <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -32,53 +91,127 @@
             </button>
         </div>
 
-        <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
-                <h2 class="text-lg font-semibold text-gray-700 mb-2">Accelerometer (m/s²)</h2>
-                <div class="space-y-2 text-gray-600 font-medium">
-                    <p>X: <span id="accelX" class="font-mono text-gray-800">--</span></p>
-                    <p>Y: <span id="accelY" class="font-mono text-gray-800">--</span></p>
-                    <p>Z: <span id="accelZ" class="font-mono text-gray-800">--</span></p>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div class="bg-gray-800 p-6 rounded-xl shadow-xl">
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Accelerometer Live Graph (Average)</h2>
+                <div class="relative h-80">
+                    <canvas id="accelChartCanvas"></canvas>
                 </div>
             </div>
-            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
-                <h2 class="text-lg font-semibold text-gray-700 mb-2">Gyroscope (rad/s)</h2>
-                <div class="space-y-2 text-gray-600 font-medium">
-                    <p>X: <span id="gyroX" class="font-mono text-gray-800">--</span></p>
-                    <p>Y: <span id="gyroY" class="font-mono text-gray-800">--</span></p>
-                    <p>Z: <span id="gyroZ" class="font-mono text-gray-800">--</span></p>
+
+            <div class="bg-gray-800 p-6 rounded-xl shadow-xl">
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Gyroscope Live Graph (Average)</h2>
+                <div class="relative h-80">
+                    <canvas id="gyroChartCanvas"></canvas>
                 </div>
             </div>
-            <div class="bg-gray-50 p-6 rounded-xl shadow-inner">
-                <h2 class="text-lg font-semibold text-gray-700 mb-2">Temperature (°C)</h2>
-                <p class="text-gray-600 font-medium">Value: <span id="temperature" class="font-mono text-gray-800 text-2xl">--</span></p>
-            </div>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-xl">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Accelerometer Live Graph</h2>
-            <div class="relative h-80">
-                <canvas id="accelChartCanvas"></canvas>
+        <details class="bg-gray-800 p-6 rounded-xl shadow-xl">
+            <summary class="text-lg font-semibold text-gray-200 cursor-pointer select-none">
+                Debug Information
+            </summary>
+            <div class="mt-4 flex flex-col gap-6">
+                <div id="data-container" class="data-grid">
+                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
+                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 1</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Accelerometer (m/s²)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s1_accelX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s1_accelY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s1_accelZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Gyroscope (rad/s)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s1_gyroX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s1_gyroY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s1_gyroZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
+                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 2</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Accelerometer (m/s²)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s2_accelX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s2_accelY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s2_accelZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Gyroscope (rad/s)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s2_gyroX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s2_gyroY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s2_gyroZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
+                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 3</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Accelerometer (m/s²)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s3_accelX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s3_accelY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s3_accelZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Gyroscope (rad/s)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s3_gyroX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s3_gyroY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s3_gyroZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
+                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 4</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Accelerometer (m/s²)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s4_accelX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s4_accelY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s4_accelZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-400">Gyroscope (rad/s)</h3>
+                                <div class="space-y-1 text-gray-300 font-medium text-sm">
+                                    <p>X: <span id="s4_gyroX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="s4_gyroY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="s4_gyroZ" class="font-mono text-gray-100">--</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-700 p-6 rounded-xl shadow-xl">
+                    <h2 class="text-lg font-semibold text-gray-200 mb-2">Live Data Feed (JSON)</h2>
+                    <pre id="live-feed" class="live-feed-box p-4 rounded-xl text-xs overflow-auto"></pre>
+                </div>
             </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-xl shadow-xl">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Gyroscope Live Graph</h2>
-            <div class="relative h-80">
-                <canvas id="gyroChartCanvas"></canvas>
+        </details>
+        
+        <div id="alert-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="document.getElementById('alert-modal').style.display='none'">&times;</span>
+                <h3 class="text-xl font-bold mb-2">Information</h3>
+                <p id="alert-message" class="text-gray-300 whitespace-pre-line"></p>
             </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-xl shadow-xl">
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">Live Data Feed (JSON)</h2>
-            <pre id="live-feed" class="live-feed-box p-4 rounded-xl text-xs overflow-auto"></pre>
-        </div>
-    </div>
-    <div id="alert-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" onclick="document.getElementById('alert-modal').style.display='none'">&times;</span>
-            <h3 class="text-xl font-bold mb-2">Information</h3>
-            <p id="alert-message" class="text-gray-700 whitespace-pre-line"></p>
         </div>
     </div>
     <script>
@@ -99,14 +232,24 @@
         const connectButton = document.getElementById('connectButton');
         const zeroButton = document.getElementById('zeroButton');
         const statusMessage = document.getElementById('status-message');
-        const accelX = document.getElementById('accelX');
-        const accelY = document.getElementById('accelY');
-        const accelZ = document.getElementById('accelZ');
-        const gyroX = document.getElementById('gyroX');
-        const gyroY = document.getElementById('gyroY');
-        const gyroZ = document.getElementById('gyroZ');
-        const temperature = document.getElementById('temperature');
         const liveFeed = document.getElementById('live-feed');
+
+        // Dynamically get DOM elements for all sensors
+        const sensorDisplays = {};
+        for (let i = 1; i <= 4; i++) {
+            sensorDisplays[`s${i}`] = {
+                accel: {
+                    x: document.getElementById(`s${i}_accelX`),
+                    y: document.getElementById(`s${i}_accelY`),
+                    z: document.getElementById(`s${i}_accelZ`)
+                },
+                gyro: {
+                    x: document.getElementById(`s${i}_gyroX`),
+                    y: document.getElementById(`s${i}_gyroY`),
+                    z: document.getElementById(`s${i}_gyroZ`)
+                }
+            };
+        }
 
         // --- Global BLE Objects ---
         let bleDevice;
@@ -115,18 +258,20 @@
         // --- Data Processing Constants and Variables ---
         const SMOOTHING_WINDOW_SIZE = 7;
         const VISIBLE_DATA_POINTS = 500;
+        const dataPointsPerSecond = 100;
+        const maxTimeInSeconds = VISIBLE_DATA_POINTS / dataPointsPerSecond;
         const Y_BUFFER_PERCENTAGE = 0.05;
         const MIN_Y_RANGE = 3;
         
-        let accelHistory = { x: [], y: [], z: [] };
-        let gyroHistory = { x: [], y: [], z: [] };
+        let accelHistory = { s1: { x: [], y: [], z: [] }, s2: { x: [], y: [], z: [] }, s3: { x: [], y: [], z: [] }, s4: { x: [], y: [], z: [] } };
+        let gyroHistory = { s1: { x: [], y: [], z: [] }, s2: { x: [], y: [], z: [] }, s3: { x: [], y: [], z: [] }, s4: { x: [], y: [], z: [] } };
 
         // --- Sensor Offsets (Accelerometer and Gyroscope) ---
-        // These are the biases to be subtracted from the raw sensor data
-        // Initial values are zero, but will be set by the zeroing function
         let offsets = {
-            accel: { x: 0, y: 0, z: 9.81 }, // Accel Z offset is gravity (g)
-            gyro: { x: 0, y: 0, z: 0 }
+            s1: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
+            s2: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
+            s3: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
+            s4: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } }
         };
 
         // --- Data Smoothing and Calculation ---
@@ -140,7 +285,7 @@
                 historyBuffer.z.shift();
             }
             const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-            const avg = (arr) => sum(arr) / arr.length;
+            const avg = (arr) => arr.length > 0 ? sum(arr) / arr.length : 0;
             return {
                 x: avg(historyBuffer.x),
                 y: avg(historyBuffer.y),
@@ -180,18 +325,49 @@
                     animation: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
-                        tooltip: { callbacks: { title: (tooltipItems) => `Data Point: ${tooltipItems[0].label}` } }
+                        legend: { 
+                            labels: { 
+                                usePointStyle: true, 
+                                boxWidth: 8, 
+                                padding: 16, 
+                                color: '#e0e0e0' 
+                            } 
+                        },
+                        tooltip: { 
+                            callbacks: { 
+                                title: (tooltipItems) => `Time: ${tooltipItems[0].label}`
+                            } 
+                        }
                     },
                     scales: {
-                        x: { title: { display: true, text: 'Data Point Index' }, ticks: { maxTicksLimit: 20 }, grid: { display: true } },
+                        x: { 
+                            title: { display: true, text: `Time`, color: '#a0a0a0' }, 
+                            ticks: {
+                                maxTicksLimit: 10,
+                                color: '#e0e0e0',
+                                // This callback function only shows a label at 30-second intervals
+                                callback: function(value, index, ticks) {
+                                    if (index % (dataPointsPerSecond * 30) === 0) {
+                                        return this.getLabelForValue(value);
+                                    }
+                                    return '';
+                                },
+                                font: function(context) {
+                                    if (context.tick && context.tick.label && context.tick.label.includes(':30')) {
+                                        return { weight: 'bold' };
+                                    }
+                                    return { weight: 'normal' };
+                                }
+                            },
+                            grid: { display: true, color: 'rgba(255, 255, 255, 0.1)' } 
+                        },
                         y: {
-                            title: { display: true, text: yAxisLabel },
+                            title: { display: true, text: yAxisLabel, color: '#a0e0e0' },
                             min: -MIN_Y_RANGE,
                             max: MIN_Y_RANGE,
-                            ticks: { stepSize: 1 },
+                            ticks: { stepSize: 1, color: '#e0e0e0' },
                             grid: {
-                                color: (context) => context.tick.value === 0 ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.1)',
+                                color: (context) => context.tick.value === 0 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.1)',
                                 lineWidth: (context) => context.tick.value === 0 ? 2 : 1
                             }
                         }
@@ -201,36 +377,49 @@
             });
         }
 
-        const accelChart = createChart(document.getElementById('accelChartCanvas').getContext('2d'), 'Accel', 'Value (m/s²)');
-        const gyroChart = createChart(document.getElementById('gyroChartCanvas').getContext('2d'), 'Gyro', 'Value (rad/s)');
+        const accelChart = createChart(document.getElementById('accelChartCanvas').getContext('2d'), 'Accel (Avg)', 'Value (m/s²)');
+        const gyroChart = createChart(document.getElementById('gyroChartCanvas').getContext('2d'), 'Gyro (Avg)', 'Value (rad/s)');
 
         // --- Offset Calculation Logic ---
         const ZEROING_SAMPLES = 25;
         let zeroingSampleCount = 0;
-        let zeroingAccelSamples = { x: [], y: [], z: [] };
-        let zeroingGyroSamples = { x: [], y: [], z: [] };
+        let zeroingSamples = {
+            s1: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+            s2: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+            s3: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+            s4: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } }
+        };
         let isZeroing = false;
 
         function startZeroing() {
             if (isZeroing) return;
             isZeroing = true;
             zeroingSampleCount = 0;
-            zeroingAccelSamples = { x: [], y: [], z: [] };
-            zeroingGyroSamples = { x: [], y: [], z: [] };
+            zeroingSamples = {
+                s1: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                s2: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                s3: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                s4: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } }
+            };
             zeroButton.disabled = true;
             zeroButton.textContent = 'Zeroing...';
             statusMessage.textContent = 'Zeroing sensors... Please keep the device flat and still for 5 seconds.';
         }
 
-        function calculateNewOffsets(rawAccel, rawGyro) {
+        function calculateNewOffsets(sensorData) {
             if (!isZeroing) return;
 
-            zeroingAccelSamples.x.push(rawAccel.x);
-            zeroingAccelSamples.y.push(rawAccel.y);
-            zeroingAccelSamples.z.push(rawAccel.z);
-            zeroingGyroSamples.x.push(rawGyro.x);
-            zeroingGyroSamples.y.push(rawGyro.y);
-            zeroingGyroSamples.z.push(rawGyro.z);
+            for (let i = 1; i <= 4; i++) {
+                const sensorKey = `sensor${i}`;
+                const samplesKey = `s${i}`;
+                
+                zeroingSamples[samplesKey].accel.x.push(sensorData[sensorKey].accel.x);
+                zeroingSamples[samplesKey].accel.y.push(sensorData[sensorKey].accel.y);
+                zeroingSamples[samplesKey].accel.z.push(sensorData[sensorKey].accel.z);
+                zeroingSamples[samplesKey].gyro.x.push(sensorData[sensorKey].gyro.x);
+                zeroingSamples[samplesKey].gyro.y.push(sensorData[sensorKey].gyro.y);
+                zeroingSamples[samplesKey].gyro.z.push(sensorData[sensorKey].gyro.z);
+            }
             zeroingSampleCount++;
 
             statusMessage.textContent = `Zeroing sensors... Sample ${zeroingSampleCount}/${ZEROING_SAMPLES}`;
@@ -242,20 +431,28 @@
                 statusMessage.textContent = 'Sensor zeroing complete. New offsets applied.';
                 
                 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-                const avg = (arr) => sum(arr) / arr.length;
+                const avg = (arr) => arr.length > 0 ? sum(arr) / arr.length : 0;
                 
-                // Calculate and store new offsets
-                offsets.accel.x = avg(zeroingAccelSamples.x);
-                offsets.accel.y = avg(zeroingAccelSamples.y);
-                offsets.accel.z = avg(zeroingAccelSamples.z);
-                offsets.gyro.x = avg(zeroingGyroSamples.x);
-                offsets.gyro.y = avg(zeroingGyroSamples.y);
-                offsets.gyro.z = avg(zeroingGyroSamples.z);
+                for (let i = 1; i <= 4; i++) {
+                    const samplesKey = `s${i}`;
+                    const sensorOffsets = offsets[samplesKey];
+                    const sensorSamples = zeroingSamples[samplesKey];
+                    
+                    sensorOffsets.accel.x = avg(sensorSamples.accel.x);
+                    sensorOffsets.accel.y = avg(sensorSamples.accel.y);
+                    sensorOffsets.accel.z = avg(sensorSamples.accel.z);
+                    sensorOffsets.gyro.x = avg(sensorSamples.gyro.x);
+                    sensorOffsets.gyro.y = avg(sensorSamples.gyro.y);
+                    sensorOffsets.gyro.z = avg(sensorSamples.gyro.z);
+                }
 
-                // Reset buffers
                 zeroingSampleCount = 0;
-                zeroingAccelSamples = { x: [], y: [], z: [] };
-                zeroingGyroSamples = { x: [], y: [], z: [] };
+                zeroingSamples = {
+                    s1: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                    s2: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                    s3: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
+                    s4: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } }
+                };
             }
         }
 
@@ -272,43 +469,66 @@
 
                 // If zeroing is in progress, collect samples and calculate new offsets
                 if (isZeroing) {
-                    calculateNewOffsets(sensorData.accel, sensorData.gyro);
+                    calculateNewOffsets(sensorData);
                 }
 
-                // Apply the smoothing and offsets to the data before display/graphing
-                const smoothedAccel = smoothData(sensorData.accel, accelHistory);
-                const smoothedGyro = smoothData(sensorData.gyro, gyroHistory);
-                
-                const zeroedAccel = {
-                    x: smoothedAccel.x - offsets.accel.x,
-                    y: smoothedAccel.y - offsets.accel.y,
-                    z: smoothedAccel.z - offsets.accel.z
-                };
-                
-                const zeroedGyro = {
-                    x: smoothedGyro.x - offsets.gyro.x,
-                    y: smoothedGyro.y - offsets.gyro.y,
-                    z: smoothedGyro.z - offsets.gyro.z
-                };
+                // Calculate average of all sensors for the graph
+                const accelAvg = { x: 0, y: 0, z: 0 };
+                const gyroAvg = { x: 0, y: 0, z: 0 };
 
-                // Update the displayed values
-                accelX.textContent = zeroedAccel.x.toFixed(2);
-                accelY.textContent = zeroedAccel.y.toFixed(2);
-                accelZ.textContent = zeroedAccel.z.toFixed(2);
-                gyroX.textContent = zeroedGyro.x.toFixed(2);
-                gyroY.textContent = zeroedGyro.y.toFixed(2);
-                gyroZ.textContent = zeroedGyro.z.toFixed(2);
-                temperature.textContent = sensorData.temp.toFixed(1);
+                for (let i = 1; i <= 4; i++) {
+                    const sensorKey = `sensor${i}`;
+                    const samplesKey = `s${i}`;
+                    const rawAccel = sensorData[sensorKey].accel;
+                    const rawGyro = sensorData[sensorKey].gyro;
+                    
+                    // Apply smoothing to each sensor individually
+                    const smoothedAccel = smoothData(rawAccel, accelHistory[samplesKey]);
+                    const smoothedGyro = smoothData(rawGyro, gyroHistory[samplesKey]);
+
+                    // Apply the offsets to each sensor's smoothed data
+                    const zeroedAccel = {
+                        x: smoothedAccel.x - offsets[samplesKey].accel.x,
+                        y: smoothedAccel.y - offsets[samplesKey].accel.y,
+                        z: smoothedAccel.z - offsets[samplesKey].accel.z
+                    };
+                    
+                    const zeroedGyro = {
+                        x: smoothedGyro.x - offsets[samplesKey].gyro.x,
+                        y: smoothedGyro.y - offsets[samplesKey].gyro.y,
+                        z: smoothedGyro.z - offsets[samplesKey].gyro.z
+                    };
+
+                    // Update the displayed values for each sensor
+                    sensorDisplays[samplesKey].accel.x.textContent = zeroedAccel.x.toFixed(2);
+                    sensorDisplays[samplesKey].accel.y.textContent = zeroedAccel.y.toFixed(2);
+                    sensorDisplays[samplesKey].accel.z.textContent = zeroedAccel.z.toFixed(2);
+                    sensorDisplays[samplesKey].gyro.x.textContent = zeroedGyro.x.toFixed(2);
+                    sensorDisplays[samplesKey].gyro.y.textContent = zeroedGyro.y.toFixed(2);
+                    sensorDisplays[samplesKey].gyro.z.textContent = zeroedGyro.z.toFixed(2);
+
+                    // Add to the average for the charts
+                    accelAvg.x += zeroedAccel.x;
+                    accelAvg.y += zeroedAccel.y;
+                    accelAvg.z += zeroedAccel.z;
+                    gyroAvg.x += zeroedGyro.x;
+                    gyroAvg.y += zeroedGyro.y;
+                    gyroAvg.z += zeroedGyro.z;
+                }
 
                 if (!isZeroing) {
                     statusMessage.textContent = 'Receiving live data...';
                 }
 
-                // --- Update Charts (Refactored for both charts) ---
+                // --- Update Charts with the averaged data ---
                 function updateChart(chartInstance, dataX, dataY, dataZ) {
                     chartInstance.data.datasets[0].data.push(dataX);
                     chartInstance.data.datasets[1].data.push(dataY);
                     chartInstance.data.datasets[2].data.push(dataZ);
+                    
+                    // Get the current time for the x-axis label
+                    const now = new Date();
+                    chartInstance.data.labels.push(now.toLocaleTimeString());
 
                     // Dynamic Y-axis Scaling
                     const allData = [...chartInstance.data.datasets[0].data, ...chartInstance.data.datasets[1].data, ...chartInstance.data.datasets[2].data];
@@ -317,20 +537,18 @@
                     chartInstance.options.scales.y.min = -chartMaxY;
                     chartInstance.options.scales.y.max = chartMaxY;
 
-                    // Manage Data Points and X-axis Labels
+                    // Manage Data Points
                     if (chartInstance.data.datasets[0].data.length > VISIBLE_DATA_POINTS) {
                         const pointsToRemove = chartInstance.data.datasets[0].data.length - VISIBLE_DATA_POINTS;
                         chartInstance.data.datasets.forEach(dataset => dataset.data.splice(0, pointsToRemove));
                         chartInstance.data.labels.splice(0, pointsToRemove);
                     }
-                    const currentDataLength = chartInstance.data.datasets[0].data.length;
-                    chartInstance.data.labels = Array.from({ length: currentDataLength }, (_, i) => i);
                     
                     chartInstance.update('none');
                 }
 
-                updateChart(accelChart, zeroedAccel.x, zeroedAccel.y, zeroedAccel.z);
-                updateChart(gyroChart, zeroedGyro.x, zeroedGyro.y, zeroedGyro.z);
+                updateChart(accelChart, accelAvg.x / 4, accelAvg.y / 4, accelAvg.z / 4);
+                updateChart(gyroChart, gyroAvg.x / 4, gyroAvg.y / 4, gyroAvg.z / 4);
                 
             } catch (error) {
                 console.error("Error parsing JSON:", error);
