@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ESP32 MPU6050 Head Impact Monitor</title>
+    <title>NeuroGuard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,6 +21,100 @@
             font-family: 'Inter', sans-serif;
             background-color: #121212;
             color: #e0e0e0;
+        }
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: #1f1f1f;
+            border-bottom: 1px solid #333;
+            z-index: 50;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+        .navbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .connection-button {
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .status-disconnected {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .status-disconnected:hover {
+            background-color: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        .status-connected {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+        .status-connected:hover {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .status-connecting {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border-color: rgba(59, 130, 246, 0.3);
+            cursor: not-allowed;
+        }
+        .pause-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .pause-active {
+            background-color: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+        .pause-active:hover {
+            background-color: rgba(251, 191, 36, 0.3);
+            border-color: rgba(251, 191, 36, 0.5);
+        }
+        .pause-inactive {
+            background-color: rgba(147, 51, 234, 0.2);
+            color: #a855f7;
+            border-color: rgba(147, 51, 234, 0.3);
+        }
+        .pause-inactive:hover {
+            background-color: rgba(147, 51, 234, 0.3);
+            border-color: rgba(147, 51, 234, 0.5);
+        }
+        .main-content {
+            margin-top: 5rem;
+            padding: 2rem;
         }
         .modal {
             display: none;
@@ -33,24 +130,31 @@
         }
         .modal-content {
             background-color: #1f1f1f;
-            margin: 15% auto;
+            margin: 10% auto;
             padding: 24px;
             border-radius: 12px;
             box-shadow: 0 10px 15px rgba(0,0,0,0.3);
-            max-width: 500px;
+            max-width: 600px;
             animation: fadeIn 0.3s ease-in-out;
             color: #e0e0e0;
         }
+        /* Style the AI response markdown */
+        #alert-message h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid #444; padding-bottom: 0.25rem; }
+        #alert-message ul { list-style-type: disc; margin-left: 1.5rem; }
+        #alert-message li { margin-bottom: 0.25rem; }
+        #alert-message strong { color: #81c784; }
+        #alert-message hr { border-color: #444; margin-top: 1rem; margin-bottom: 1rem; }
+
         .close-button {
             color: #888;
             float: right;
             font-size: 28px;
             font-weight: bold;
+            cursor: pointer;
         }
         .close-button:hover, .close-button:focus {
             color: #ccc;
             text-decoration: none;
-            cursor: pointer;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -64,23 +168,12 @@
             overflow-y: scroll;
         }
         .hidden { display: none; }
-        .data-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
-        }
-        @media (max-width: 1280px) {
-            .data-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 768px) {
-            .data-grid { grid-template-columns: 1fr; }
-        }
         .risk-level {
             font-weight: bold;
             padding: 0.25rem 0.5rem;
             border-radius: 0.375rem;
             display: inline-block;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
         }
         .risk-low { background-color: #16a34a; color: white; }
         .risk-moderate { background-color: #ca8a04; color: white; }
@@ -92,161 +185,235 @@
             position: relative;
         }
         canvas { display: block; }
+        
+        .fullscreen-modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #121212;
+        }
+        
+        .fullscreen-chart-container {
+            width: 100%;
+            height: calc(100% - 60px);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .fullscreen-header {
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background-color: #1f1f1f;
+            border-bottom: 1px solid #333;
+        }
+        
+        .fullscreen-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+        
+        .fullscreen-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .fullscreen-btn {
+            padding: 8px 16px;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .fullscreen-btn:hover {
+            background-color: #3c3c3c;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            user-select: none;
+        }
+        
+        .chart-hint {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 0.7rem;
+            color: rgba(160, 160, 160, 0.5);
+            pointer-events: none;
+        }
+        
+        .risk-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .risk-grid { grid-template-columns: 1fr; }
+        }
+        
+        .risk-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .shortcuts-grid {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background-color: #2c2c2c;
+            border-radius: 0.5rem;
+            border: 1px solid #444;
+        }
+        
+        .shortcut-key {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #555;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        
+        .shortcut-description {
+            color: #e0e0e0;
+        }
+        
+        .help-button {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .help-button:hover {
+            background-color: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
     </style>
 </head>
-<body class="bg-gray-900 min-h-screen flex flex-col items-center p-4 sm:p-8">
-    <div class="max-w-6xl w-full flex flex-col gap-6">
-        <h1 class="text-3xl font-bold text-center text-gray-100 mb-4">Head Impact Monitor</h1>
-        <p id="status-message" class="text-center text-sm text-gray-400">
-            Please connect to your ESP32 device to start receiving data.
-        </p>
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
-            <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-                Connect to ESP32
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-brand">🧠 NeuroGuard</div>
+        <div class="navbar-controls">
+            <button id="connectButton" class="connection-button status-disconnected">
+                <span class="status-icon">⚪</span>
+                <span class="status-text">Disconnected</span>
             </button>
-            <button id="zeroButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 transform hover:scale-105 hidden">
-                Zero Sensors
+            <button id="pauseButton" class="pause-button pause-inactive hidden">
+                <span class="pause-icon">⏸️</span>
+                <span class="pause-text">Pause</span>
             </button>
-            <button id="clearHistoryButton" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-                Clear History
+            <button id="helpButton" class="help-button">
+                <span style="font-size: 1.2rem;">⌨️</span> Shortcuts
             </button>
         </div>
+    </nav>
 
+    <!-- Main Content -->
+    <div class="main-content max-w-7xl mx-auto">
         <!-- Head Impact Risk Dashboard -->
-        <div id="risk-dashboard" class="bg-gray-800 p-6 rounded-xl shadow-xl">
-            <h2 class="text-lg font-semibold text-gray-200 mb-4">Head Impact Risk Assessment</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-gray-700 p-4 rounded-lg">
-                    <h3 class="text-md font-semibold text-gray-300" title="NRS (Neurological Risk Score) combines the latest impact (ISS), acute exposure (AWE), and chronic load (CLI).">Neurological Risk Score (NRS)</h3>
-                    <p id="nrs-score" class="text-3xl font-bold text-gray-100 mt-2">0.0</p>
-                    <p id="nrs-level" class="risk-level risk-low mt-1">Low Risk</p>
+        <div id="risk-dashboard" class="bg-gray-800 p-4 rounded-xl shadow-xl mb-6">
+            <div class="risk-header">
+                <h2 class="text-lg font-semibold text-gray-200">Headband Impact Risk Assessment</h2>
+                <button id="aiDiagnosisButton" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
+                    Get AI Assessment
+                </button>
+                <button id="clearHistoryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
+                    Clear History
+                </button>
+            </div>
+            <div class="risk-grid mb-4">
+                <div class="bg-gray-700 p-3 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-400 mb-1">NRS Score</h3>
+                    <div class="flex items-baseline gap-2">
+                        <p id="nrs-score" class="text-2xl font-bold text-gray-100">0.0</p>
+                        <p id="nrs-level" class="risk-level risk-low">Low Risk</p>
+                    </div>
                 </div>
-                <div class="bg-gray-700 p-4 rounded-lg">
-                    <h3 class="text-md font-semibold text-gray-300" title="Latest detected impact summary: peak linear acceleration (g) and rotational rate change (rad/s²).">Latest Impact</h3>
-                    <p class="text-sm text-gray-300 mt-2">None detected</p>
-                    <p id="latest-impact" class="text-sm font-mono text-gray-100"></p>
+                <div class="bg-gray-700 p-3 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-400 mb-1">Acute (AWE)</h3>
+                    <p id="awe-score" class="text-2xl font-bold text-yellow-300">0.0</p>
                 </div>
-                <div class="bg-gray-700 p-4 rounded-lg">
-                    <h3 class="text-md font-semibold text-gray-300" title="AWE (Acute Weighted Exposure) reflects the cumulative load from recent impacts, decaying over days.">Acute Exposure (AWE)</h3>
-                    <p id="awe-score" class="text-xl font-bold text-yellow-300">0.0</p>
-                </div>
-                <div class="bg-gray-700 p-4 rounded-lg">
-                    <h3 class="text-md font-semibold text-gray-300" title="CLI (Chronic Load Index) reflects longer-term cumulative exposure with slow decay.">Chronic Load (CLI)</h3>
-                    <p id="cli-score" class="text-xl font-bold text-blue-300">0.0</p>
+                <div class="bg-gray-700 p-3 rounded-lg">
+                    <h3 class="text-sm font-medium text-gray-400 mb-1">Chronic (CLI)</h3>
+                    <p id="cli-score" class="text-2xl font-bold text-blue-300">0.0</p>
                 </div>
             </div>
-            <div class="mt-6 h-60">
+            <div class="h-48 chart-wrapper">
                 <canvas id="nrsChartCanvas"></canvas>
+                <div class="chart-hint">Hold to reset • Double-click to expand</div>
             </div>
         </div>
 
         <!-- Live Graphs -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
             <div class="bg-gray-800 p-6 rounded-xl shadow-xl">
-                <h2 class="text-lg font-semibold text-gray-200 mb-4">Accelerometer (Average)</h2>
-                <div class="relative h-80">
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Accelerometer</h2>
+                <div class="relative h-80 chart-wrapper">
                     <canvas id="accelChartCanvas"></canvas>
+                    <div class="chart-hint">Hold to reset • Double-click to expand</div>
                 </div>
             </div>
             <div class="bg-gray-800 p-6 rounded-xl shadow-xl">
-                <h2 class="text-lg font-semibold text-gray-200 mb-4">Gyroscope (Average)</h2>
-                <div class="relative h-80">
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Gyroscope</h2>
+                <div class="relative h-80 chart-wrapper">
                     <canvas id="gyroChartCanvas"></canvas>
+                    <div class="chart-hint">Hold to reset • Double-click to expand</div>
                 </div>
             </div>
         </div>
 
         <!-- Debug Panel -->
-        <details class="bg-gray-800 p-6 rounded-xl shadow-xl open">
+        <details class="bg-gray-800 p-6 rounded-xl shadow-xl">
             <summary class="text-lg font-semibold text-gray-200 cursor-pointer select-none">
                 Debug Information
             </summary>
             <div class="mt-4 flex flex-col gap-6">
-                <div id="data-container" class="data-grid">
-                    <!-- <div class="bg-gray-700 p-6 rounded-xl shadow-xl">
-                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Debug Log</h2>
-                        <pre id="debug-log" class="live-feed-box p-4 rounded-xl text-xs overflow-auto"></pre>
-                    </div> -->
+                <div id="data-container">
                     <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
-                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 1</h2>
+                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor Data</h2>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <h3 class="text-md font-semibold text-gray-400">Acceleration (m/s²)</h3>
                                 <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s1_accelX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s1_accelY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s1_accelZ" class="font-mono text-gray-100">--</span></p>
+                                    <p>X: <span id="accelX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="accelY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="accelZ" class="font-mono text-gray-100">--</span></p>
                                 </div>
                             </div>
                             <div>
                                 <h3 class="text-md font-semibold text-gray-400">Gyro (rad/s)</h3>
                                 <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s1_gyroX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s1_gyroY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s1_gyroZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
-                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 2</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Acceleration (m/s²)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s2_accelX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s2_accelY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s2_accelZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Gyro (rad/s)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s2_gyroX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s2_gyroY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s2_gyroZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
-                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 3</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Acceleration (m/s²)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s3_accelX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s3_accelY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s3_accelZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Gyro (rad/s)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s3_gyroX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s3_gyroY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s3_gyroZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-700 p-6 rounded-xl shadow-inner">
-                        <h2 class="text-lg font-semibold text-gray-200 mb-2">Sensor 4</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Acceleration (m/s²)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s4_accelX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s4_accelY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s4_accelZ" class="font-mono text-gray-100">--</span></p>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-400">Gyro (rad/s)</h3>
-                                <div class="space-y-1 text-gray-300 font-medium text-sm">
-                                    <p>X: <span id="s4_gyroX" class="font-mono text-gray-100">--</span></p>
-                                    <p>Y: <span id="s4_gyroY" class="font-mono text-gray-100">--</span></p>
-                                    <p>Z: <span id="s4_gyroZ" class="font-mono text-gray-100">--</span></p>
+                                    <p>X: <span id="gyroX" class="font-mono text-gray-100">--</span></p>
+                                    <p>Y: <span id="gyroY" class="font-mono text-gray-100">--</span></p>
+                                    <p>Z: <span id="gyroZ" class="font-mono text-gray-100">--</span></p>
                                 </div>
                             </div>
                         </div>
@@ -263,132 +430,135 @@
         <div id="alert-modal" class="modal">
             <div class="modal-content">
                 <span class="close-button" onclick="document.getElementById('alert-modal').style.display='none'">&times;</span>
-                <h3 class="text-xl font-bold mb-2">Alert</h3>
-                <p id="alert-message" class="text-gray-300 whitespace-pre-line"></p>
+                <div id="alert-message" class="text-gray-300 whitespace-pre-line"></div>
             </div>
+        </div>
+        
+        <!-- Shortcuts Modal -->
+        <div id="shortcuts-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="document.getElementById('shortcuts-modal').style.display='none'">&times;</span>
+                <h3 class="text-xl font-bold mb-2">⌨️ Keyboard Shortcuts & Gestures</h3>
+                <div class="shortcuts-grid">
+                    <h4 class="text-lg font-semibold text-gray-300 mt-2">Chart Controls</h4>
+                    <div class="shortcut-item"><span class="shortcut-description">Reset chart zoom</span><span class="shortcut-key">Hold (0.5s)</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Open fullscreen view</span><span class="shortcut-key">Double-click</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Zoom in/out</span><span class="shortcut-key">Scroll wheel</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Pan chart</span><span class="shortcut-key">Click & drag</span></div>
+                    <h4 class="text-lg font-semibold text-gray-300 mt-4">Keyboard Shortcuts</h4>
+                    <div class="shortcut-item"><span class="shortcut-description">Close fullscreen/modals</span><span class="shortcut-key">ESC</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Connect/Disconnect BLE</span><span class="shortcut-key">C</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Pause/Resume (zeros on resume)</span><span class="shortcut-key">P</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Clear impact history</span><span class="shortcut-key">Delete</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Toggle debug panel</span><span class="shortcut-key">D</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Show shortcuts</span><span class="shortcut-key">?</span></div>
+                    <h4 class="text-lg font-semibold text-gray-300 mt-4">Connection Status</h4>
+                    <div class="shortcut-item"><span class="shortcut-description">Click button to connect</span><span class="shortcut-key">⚪ Red</span></div>
+                    <div class="shortcut-item"><span class="shortcut-description">Click button to disconnect</span><span class="shortcut-key">🟢 Green</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Fullscreen Modal -->
+    <div id="fullscreen-modal" class="fullscreen-modal">
+        <div class="fullscreen-header">
+            <div id="fullscreen-title" class="fullscreen-title">Chart</div>
+            <div class="fullscreen-controls">
+                <button class="fullscreen-btn" onclick="resetZoom()">Reset Zoom</button>
+                <button class="fullscreen-btn" onclick="closeFullscreen()">✕ Close</button>
+            </div>
+        </div>
+        <div class="fullscreen-chart-container">
+            <canvas id="fullscreenChartCanvas"></canvas>
         </div>
     </div>
 
     <script>
-        const DOM_FPS = 10;
+        const DOM_FPS = 60;
         let lastDomFlush = 0;
-        const latestDisplay = { s1:{a:{},g:{}}, s2:{a:{},g:{}}, s3:{a:{},g:{}}, s4:{a:{},g:{}} };
-        const GYRO_MULTIPLIER = 2.5; // Multiply all gyro values by 2.5
+        const latestDisplay = { a: {}, g: {} };
+        const GYRO_MULTIPLIER = 2.5;
 
-        // === Custom Alert ===
-        function showCustomAlert(message) {
+        let fullscreenChart = null;
+        let currentFullscreenType = null;
+        let nrsUpdateInterval = null;
+        let lastNRSUpdate = 0;
+        let connectionStartTime = 0;
+        let impactDetectionDisabled = true;
+        let isConnected = false;
+        let isPaused = false;
+        let latestSensorData = null;
+
+        function showCustomAlert(content, isHtml = false) {
             const modal = document.getElementById('alert-modal');
             const alertMessage = document.getElementById('alert-message');
-            alertMessage.textContent = message;
+            if (isHtml) {
+                alertMessage.innerHTML = content;
+            } else {
+                alertMessage.textContent = content;
+            }
             modal.style.display = 'block';
         }
 
-        // === BLE Configuration ===
         const SERVICE_UUID = "12345678-1234-1234-1234-123456789abc";
         const CHARACTERISTIC_UUID = "87654321-4321-4321-4321-cba987654321";
-        const DEVICE_NAME = "ESP32_MPU6050_BLE"; // Must match ESP32 advertising name
+        const DEVICE_NAME = "ESP32_MPU6050_BLE";
 
-        // === DOM Elements ===
         const connectButton = document.getElementById('connectButton');
-        const zeroButton = document.getElementById('zeroButton');
+        const pauseButton = document.getElementById('pauseButton');
         const clearHistoryButton = document.getElementById('clearHistoryButton');
-        const statusMessage = document.getElementById('status-message');
+        const helpButton = document.getElementById('helpButton');
         const liveFeed = document.getElementById('live-feed');
-        const riskDashboard = document.getElementById('risk-dashboard');
-
-        const sensorDisplays = {};
-        for (let i = 1; i <= 4; i++) {
-            sensorDisplays[`s${i}`] = {
-                accel: {
-                    x: document.getElementById(`s${i}_accelX`),
-                    y: document.getElementById(`s${i}_accelY`),
-                    z: document.getElementById(`s${i}_accelZ`)
-                },
-                gyro: {
-                    x: document.getElementById(`s${i}_gyroX`),
-                    y: document.getElementById(`s${i}_gyroY`),
-                    z: document.getElementById(`s${i}_gyroZ`)
-                }
-            };
-        }
-
-        // Risk Dashboard Elements
+        const aiDiagnosisButton = document.getElementById('aiDiagnosisButton');
+        const accelXEl = document.getElementById('accelX');
+        const accelYEl = document.getElementById('accelY');
+        const accelZEl = document.getElementById('accelZ');
+        const gyroXEl = document.getElementById('gyroX');
+        const gyroYEl = document.getElementById('gyroY');
+        const gyroZEl = document.getElementById('gyroZ');
         const nrsScoreEl = document.getElementById('nrs-score');
         const nrsLevelEl = document.getElementById('nrs-level');
-        const latestImpactEl = document.getElementById('latest-impact');
         const aweScoreEl = document.getElementById('awe-score');
         const cliScoreEl = document.getElementById('cli-score');
 
-        // === BLE State ===
         let bleDevice;
         let bleCharacteristic;
 
-        // === Data Constants ===
         const SMOOTHING_WINDOW_SIZE = 7;
-        const VISIBLE_DATA_POINTS = 500;
+        const VISIBLE_DATA_POINTS = 400;
+        const NRS_VISIBLE_POINTS = 360;
         const dataPointsPerSecond = 100;
-        const Y_BUFFER_PERCENTAGE = 0.1;
+        const Y_BUFFER_PERCENTAGE = 0.15;
         const MIN_Y_RANGE = 4;
+        const NRS_UPDATE_INTERVAL = 5000;
 
-        // History Buffers
-        let accelHistory = { s1: { x: [], y: [], z: [] }, s2: { x: [], y: [], z: [] }, s3: { x: [], y: [], z: [] }, s4: { x: [], y: [], z: [] } };
-        let gyroHistory = { s1: { x: [], y: [], z: [] }, s2: { x: [], y: [], z: [] }, s3: { x: [], y: [], z: [] }, s4: { x: [], y: [], z: [] } };
+        let accelHistory = { x: [], y: [], z: [] };
+        let gyroHistory = { x: [], y: [], z: [] };
 
-        // Stillness buffers for auto-zero
-        const stillBuf = {
-            s1: { accel: { x:[], y:[], z:[] }, gyro: { x:[], y:[], z:[] } },
-            s2: { accel: { x:[], y:[], z:[] }, gyro: { x:[], y:[], z:[] } },
-            s3: { accel: { x:[], y:[], z:[] }, gyro: { x:[], y:[], z:[] } },
-            s4: { accel: { x:[], y:[], z:[] }, gyro: { x:[], y:[], z:[] } },
-        };
+        const stillBuf = { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } };
 
-        function mean(arr) {
-            if (!arr.length) return 0;
-            let s = 0;
-            for (let i = 0; i < arr.length; i++) s += arr[i];
-            return s / arr.length;
-        }
-        function std(arr) {
-            if (arr.length < 2) return 0;
-            const m = mean(arr);
-            let v = 0;
-            for (let i = 0; i < arr.length; i++) { const d = arr[i] - m; v += d*d; }
-            v /= (arr.length - 1);
-            return Math.sqrt(v);
-        }
-        function pushStillnessSample(s, accel, gyro) {
-            const b = stillBuf[s];
-            ['x','y','z'].forEach(k => {
-                b.accel[k].push(accel[k]);
-                if (b.accel[k].length > STILL_WINDOW_N) b.accel[k].shift();
-                b.gyro[k].push(gyro[k] * GYRO_MULTIPLIER); // Apply multiplier when storing
-                if (b.gyro[k].length > STILL_WINDOW_N) b.gyro[k].shift();
-            });
-        }
+        function mean(arr) { if (!arr.length) return 0; let s = 0; for (let i = 0; i < arr.length; i++) s += arr[i]; return s / arr.length; }
+        function std(arr) { if (arr.length < 2) return 0; const m = mean(arr); let v = 0; for (let i = 0; i < arr.length; i++) { const d = arr[i] - m; v += d * d; } v /= (arr.length - 1); return Math.sqrt(v); }
+        function pushStillnessSample(accel, gyro) { ['x', 'y', 'z'].forEach(k => { stillBuf.accel[k].push(accel[k]); if (stillBuf.accel[k].length > STILL_WINDOW_N) stillBuf.accel[k].shift(); stillBuf.gyro[k].push(gyro[k] * GYRO_MULTIPLIER); if (stillBuf.gyro[k].length > STILL_WINDOW_N) stillBuf.gyro[k].shift(); }); }
 
-        // Sensor Offsets (zeroed at runtime)
-        let offsets = {
-            s1: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
-            s2: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
-            s3: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } },
-            s4: { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } }
-        };
+        let offsets = { accel: { x: 0, y: 0, z: 9.81 }, gyro: { x: 0, y: 0, z: 0 } };
 
-        // === Impact & Risk Variables ===
         let lastImpactTime = 0;
         let impactHistory = [];
         let cli = 0.0;
+        let currentNRS = 0.0;
+        let currentAWE = 0.0;
+        let latestISS = 0.0;
         const CLI_DECAY = 0.99;
-        const AWE_DECAY_RATE = 0.4; // per day
-        let lastGyro = { s1: 0, s2: 0, s3: 0, s4: 0 };
+        const AWE_DECAY_RATE = 0.4;
+        let lastGyro = 0;
 
-        // === TUNABLE PARAMETERS ===
-        const WHISE_THRESHOLD = 0.05;        // Lower for sensitivity, WHISE: 0.8
-        const MIN_LINEAR_G = 1;              // Must exceed 1g to count
-        const MIN_ROTATIONAL_RAD_S2 = 75;    // Must exceed 75 rad/s²
-        const DEAD_TIME_MS = 3000;           // Increased to 3 seconds
+        const WHISE_THRESHOLD = 0.05;
+        const MIN_LINEAR_G = 1;
+        const MIN_ROTATIONAL_RAD_S2 = 75;
+        const DEAD_TIME_MS = 3000;
 
-        // === AUTO-ZERO SETTINGS (more lenient) ===
         const AUTO_ZERO_ENABLED = true;
         const STILLNESS_WINDOW_MS = 600;
         const AUTO_ZERO_HOLD_MS = 0;
@@ -397,802 +567,330 @@
         const IMPACT_SUPPRESSION_MS = 0;
         const OMEGA_STD_THRESH = 0.12;
         const ACCEL_STD_THRESH = 0.25;
-        const OFFSET_LERP = 0.9;
-        const MAX_OFFSET_STEP_ACC = 2.0;
-        const MAX_OFFSET_STEP_GYR = 0.6;
-
         const STILL_WINDOW_N = Math.max(5, Math.round(STILLNESS_WINDOW_MS * dataPointsPerSecond / 1000));
 
         let connectedAt = 0;
-        let lastAutoZeroTime = { s1:0, s2:0, s3:0, s4:0 };
-        let stillStart = { s1:0, s2:0, s3:0, s4:0 };
+        let lastAutoZeroTime = 0;
+        let stillStart = 0;
 
-        function sensorIsAccelStill(buf) {
-            if (buf.accel.x.length < STILL_WINDOW_N) return false;
-            const accelStdMax = Math.max(
-                std(buf.accel.x),
-                std(buf.accel.y),
-                std(buf.accel.z)
-            );
-            return accelStdMax < ACCEL_STD_THRESH;
-        }
-        function sensorIsGyroStill(buf) {
-            if (buf.gyro.x.length < STILL_WINDOW_N) return false;
-            const gyroStdMax = Math.max(
-                std(buf.gyro.x),
-                std(buf.gyro.y),
-                std(buf.gyro.z)
-            );
-            return gyroStdMax < OMEGA_STD_THRESH;
-        }
-
-        function applyAutoZeroForSensor(s, kind) {
-            const b = stillBuf[s];
-            if (kind === 'accel') {
-                offsets[s].accel.x = mean(b.accel.x);
-                offsets[s].accel.y = mean(b.accel.y);
-                offsets[s].accel.z = mean(b.accel.z);
-            } else if (kind === 'gyro') {
-                offsets[s].gyro.x = mean(b.gyro.x);
-                offsets[s].gyro.y = mean(b.gyro.y);
-                offsets[s].gyro.z = mean(b.gyro.z);
+        function updateConnectionStatus(status) {
+            const icon = connectButton.querySelector('.status-icon');
+            const text = connectButton.querySelector('.status-text');
+            switch (status) {
+                case 'connected':
+                    connectButton.className = 'connection-button status-connected';
+                    icon.textContent = '🟢'; text.textContent = 'Connected';
+                    connectButton.title = 'Click to disconnect';
+                    isConnected = true; addSessionMarker('connect');
+                    break;
+                case 'connecting':
+                    connectButton.className = 'connection-button status-connecting';
+                    icon.textContent = '🔵'; text.textContent = 'Connecting...';
+                    connectButton.disabled = true; isConnected = false;
+                    break;
+                case 'disconnected':
+                default:
+                    connectButton.className = 'connection-button status-disconnected';
+                    icon.textContent = '⚪'; text.textContent = 'Disconnected';
+                    connectButton.title = 'Click to connect';
+                    connectButton.disabled = false; isConnected = false;
+                    if (connectedAt > 0) { addSessionMarker('disconnect'); }
+                    break;
             }
         }
-
-        // === Auto-Zero Function (was missing) ===
+        function addSessionMarker(type) {
+            const now = Date.now();
+            const timeStr = new Date(now).toLocaleTimeString();
+            [accelChart, gyroChart].forEach(chart => {
+                chart.data.labels.push(timeStr);
+                chart.data.datasets.forEach(ds => ds.data.push(null));
+                chart.$times.push(now);
+            });
+            if (type === 'pause' || type === 'resume') {
+                nrsChart.data.labels.push(timeStr);
+                nrsChart.data.datasets[0].data.push(null);
+            }
+        }
+        function togglePause() {
+            if (!isConnected) return;
+            const icon = pauseButton.querySelector('.pause-icon');
+            const text = pauseButton.querySelector('.pause-text');
+            if (isPaused) {
+                instantZeroSensors(); isPaused = false;
+                pauseButton.className = 'pause-button pause-inactive';
+                icon.textContent = '⏸️'; text.textContent = 'Pause';
+                addSessionMarker('resume');
+            } else {
+                isPaused = true;
+                pauseButton.className = 'pause-button pause-active';
+                icon.textContent = '▶️'; text.textContent = 'Resume';
+                addSessionMarker('pause');
+            }
+        }
+        function instantZeroSensors() {
+            if (latestSensorData && latestSensorData.sensor) {
+                const sd = latestSensorData.sensor;
+                offsets.accel = { x: sd.accel.x, y: sd.accel.y, z: sd.accel.z };
+                offsets.gyro = { x: sd.gyro.x, y: sd.gyro.y, z: sd.gyro.z };
+            }
+        }
+        function sensorIsAccelStill(buf) { if (buf.accel.x.length < STILL_WINDOW_N) return false; return Math.max(std(buf.accel.x), std(buf.accel.y), std(buf.accel.z)) < ACCEL_STD_THRESH; }
+        function sensorIsGyroStill(buf) { if (buf.gyro.x.length < STILL_WINDOW_N) return false; return Math.max(std(buf.gyro.x), std(buf.gyro.y), std(buf.gyro.z)) < OMEGA_STD_THRESH; }
+        function applyAutoZeroForSensor(kind) { if (kind === 'accel') { offsets.accel = { x: mean(stillBuf.accel.x), y: mean(stillBuf.accel.y), z: mean(stillBuf.accel.z) }; } else if (kind === 'gyro') { offsets.gyro = { x: mean(stillBuf.gyro.x), y: mean(stillBuf.gyro.y), z: mean(stillBuf.gyro.z) }; } }
         function checkAutoZero() {
-            if (!AUTO_ZERO_ENABLED) return;
+            if (!AUTO_ZERO_ENABLED || isPaused) return;
             const now = Date.now();
             if (connectedAt && now - connectedAt < AUTO_ZERO_MIN_UPTIME_MS) return;
             if (now - lastImpactTime < IMPACT_SUPPRESSION_MS) return;
-
-            ['s1','s2','s3','s4'].forEach(s => {
-                const buf = stillBuf[s];
-                const accelStill = sensorIsAccelStill(buf);
-                const gyroStill  = sensorIsGyroStill(buf);
-
-                if (!(accelStill || gyroStill)) {
-                    stillStart[s] = 0;
-                    return;
-                }
-
-                if (!stillStart[s]) stillStart[s] = now;
-                if (now - stillStart[s] < STILLNESS_WINDOW_MS + AUTO_ZERO_HOLD_MS) return;
-                if (now - lastAutoZeroTime[s] < AUTO_ZERO_COOLDOWN_MS) return;
-
-                if (accelStill) applyAutoZeroForSensor(s, 'accel');
-                if (gyroStill)  applyAutoZeroForSensor(s, 'gyro');
-
-                lastAutoZeroTime[s] = now;
-                stillStart[s] = 0;
-            });
+            const accelStill = sensorIsAccelStill(stillBuf);
+            const gyroStill = sensorIsGyroStill(stillBuf);
+            if (!(accelStill || gyroStill)) { stillStart = 0; return; }
+            if (!stillStart) stillStart = now;
+            if (now - stillStart < STILLNESS_WINDOW_MS + AUTO_ZERO_HOLD_MS) return;
+            if (now - lastAutoZeroTime < AUTO_ZERO_COOLDOWN_MS) return;
+            if (accelStill) applyAutoZeroForSensor('accel');
+            if (gyroStill) applyAutoZeroForSensor('gyro');
+            lastAutoZeroTime = now;
+            stillStart = 0;
         }
 
-        // === Local Storage Functions ===
         const LOCAL_STORAGE_KEY = 'headImpactHistory';
-        
-        function saveImpactHistory() {
-            try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(impactHistory));
-            } catch (e) {
-                console.error("Failed to save impact history to localStorage:", e);
-            }
-        }
-        
-        function loadImpactHistory() {
-            try {
-                const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-                if (stored) {
-                    impactHistory = JSON.parse(stored);
-                    // Reinitialize NRS chart with stored data
-                    rebuildNRSChart();
-                    // Recalculate current risk scores
-                    recalculateRiskScores();
-                }
-            } catch (e) {
-                console.error("Failed to load impact history from localStorage:", e);
-                impactHistory = [];
-            }
-        }
-        
-        function clearImpactHistory() {
-            impactHistory = [];
-            saveImpactHistory();
-            rebuildNRSChart();
-            resetRiskScores();
-            showCustomAlert("Impact history cleared successfully.");
-        }
-        
+        const NRS_STATE_KEY = 'nrsState';
+        function saveImpactHistory() { try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(impactHistory)); localStorage.setItem(NRS_STATE_KEY, JSON.stringify({ lastUpdate: Date.now(), currentNRS, currentAWE, cli, latestISS })); } catch (e) { console.error("Failed to save history:", e); } }
+        function loadImpactHistory() { try { const stored = localStorage.getItem(LOCAL_STORAGE_KEY); const nrsState = localStorage.getItem(NRS_STATE_KEY); if (stored) { impactHistory = JSON.parse(stored); if (nrsState) { const state = JSON.parse(nrsState); cli = state.cli || 0; latestISS = state.latestISS || 0; } rebuildNRSChart(); recalculateRiskScores(); } } catch (e) { console.error("Failed to load history:", e); impactHistory = []; } }
+        function clearImpactHistory() { impactHistory = []; currentNRS = 0.0; currentAWE = 0.0; latestISS = 0.0; cli = 0.0; localStorage.removeItem(LOCAL_STORAGE_KEY); localStorage.removeItem(NRS_STATE_KEY); rebuildNRSChart(); resetRiskScores(); showCustomAlert("Impact history cleared."); }
         function rebuildNRSChart() {
-            // Clear existing chart data
             nrsChart.data.labels = [];
             nrsChart.data.datasets[0].data = [];
-            
-            // Rebuild chart with stored data - only add points that have NRS values
-            impactHistory.forEach(impact => {
-                if (typeof impact.nrs === 'number') { // Only add points with valid NRS values
-                    const timeStr = new Date(impact.time).toLocaleTimeString();
-                    nrsChart.data.labels.push(timeStr);
-                    nrsChart.data.datasets[0].data.push(impact.nrs);
-                }
-            });
-            
+            impactHistory.forEach(impact => { if (typeof impact.nrs === 'number') { nrsChart.data.labels.push(new Date(impact.time).toLocaleTimeString()); nrsChart.data.datasets[0].data.push(impact.nrs); } });
+            if (nrsChart.data.labels.length > NRS_VISIBLE_POINTS) { const e = nrsChart.data.labels.length - NRS_VISIBLE_POINTS; nrsChart.data.labels.splice(0, e); nrsChart.data.datasets[0].data.splice(0, e); }
             nrsChart.update('none');
         }
-        
         function recalculateRiskScores() {
-            if (impactHistory.length === 0) {
-                resetRiskScores();
-                return;
-            }
-            
+            if (impactHistory.length === 0) { resetRiskScores(); return; }
             const now = Date.now();
-            const oneDay = 24*60*60*1000;
-            
-            // Filter impacts to last 7 days
+            const oneDay = 86400000;
             impactHistory = impactHistory.filter(imp => (now - imp.time) < 7 * oneDay);
-            
-            // Recalculate AWE and CLI using the same logic as processImpact
             let awe = 0;
-            let cli = 0;
-            
-            // Recalculate CLI from all impacts (same as processImpact)
-            impactHistory.forEach(imp => {
-                cli = CLI_DECAY * cli + (1 - CLI_DECAY) * imp.iss;
-            });
-            
-            // Recalculate AWE (same as processImpact)
-            impactHistory.forEach(imp => {
-                const daysAgo = (now - imp.time) / oneDay;
-                awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo);
-            });
-            
-            // Recalculate NRS using the same formula as processImpact
+            impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / oneDay; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); });
+            currentAWE = awe;
             if (impactHistory.length > 0) {
                 const latestImpact = impactHistory[impactHistory.length - 1];
+                latestISS = latestImpact.iss;
                 const nrs = 0.5 * latestImpact.iss + 0.3 * awe + 0.2 * cli;
-                const nrsRounded = Math.round(nrs * 10) / 10;
-                
-                // Update all dashboard elements
-                nrsScoreEl.textContent = nrsRounded.toFixed(1);
-                latestImpactEl.textContent = `ISS: ${latestImpact.iss}, A: ${latestImpact.a_peak.toFixed(1)}g, R: ${latestImpact.alpha_peak.toFixed(0)} rad/s²`;
+                currentNRS = Math.round(nrs * 10) / 10;
+                nrsScoreEl.textContent = currentNRS.toFixed(1);
                 aweScoreEl.textContent = awe.toFixed(2);
                 cliScoreEl.textContent = cli.toFixed(2);
-                
-                // Update risk level
-                if (nrsRounded < 3) {
-                    nrsLevelEl.className = 'risk-level risk-low'; 
-                    nrsLevelEl.textContent = 'Low Risk';
-                } else if (nrsRounded < 6) {
-                    nrsLevelEl.className = 'risk-level risk-moderate'; 
-                    nrsLevelEl.textContent = 'Moderate';
-                } else if (nrsRounded < 8) {
-                    nrsLevelEl.className = 'risk-level risk-high'; 
-                    nrsLevelEl.textContent = 'High - Evaluate';
-                } else {
-                    nrsLevelEl.className = 'risk-level risk-severe'; 
-                    nrsLevelEl.textContent = 'Severe - Stop';
-                }
-                
-                // Update the latest impact in history with recalculated values
-                latestImpact.nrs = nrsRounded;
+                updateRiskLevel(currentNRS);
+                latestImpact.nrs = currentNRS;
                 latestImpact.awe = awe;
                 latestImpact.cli = cli;
             }
         }
-        
-        function resetRiskScores() {
-            nrsScoreEl.textContent = "0.0";
-            nrsLevelEl.className = 'risk-level risk-low';
-            nrsLevelEl.textContent = 'Low Risk';
-            aweScoreEl.textContent = "0.0";
-            cliScoreEl.textContent = "0.0";
-            latestImpactEl.textContent = "None detected";
+        function updateRiskLevel(nrs) {
+            if (nrs < 3) { nrsLevelEl.className = 'risk-level risk-low'; nrsLevelEl.textContent = 'Low Risk'; }
+            else if (nrs < 6) { nrsLevelEl.className = 'risk-level risk-moderate'; nrsLevelEl.textContent = 'Moderate'; }
+            else if (nrs < 8) { nrsLevelEl.className = 'risk-level risk-high'; nrsLevelEl.textContent = 'High - Evaluate'; }
+            else { nrsLevelEl.className = 'risk-level risk-severe'; nrsLevelEl.textContent = 'Severe - Stop'; }
         }
+        function resetRiskScores() { nrsScoreEl.textContent = "0.0"; nrsLevelEl.className = 'risk-level risk-low'; nrsLevelEl.textContent = 'Low Risk'; aweScoreEl.textContent = "0.0"; cliScoreEl.textContent = "0.0"; currentNRS = 0.0; currentAWE = 0.0; latestISS = 0.0; }
 
-        // === NRS Chart - Completely Redesigned ===
-        const nrsCtx = document.getElementById('nrsChartCanvas').getContext('2d');
-        const nrsChart = new Chart(nrsCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'NRS',
-                    data: [],
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.2,
-                    pointRadius: 5,
-                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverRadius: 7,
-                    pointHoverBackgroundColor: 'rgba(255, 99, 132, 1)',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: 0 // Disable animation for better performance
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Time',
-                            color: '#a0a0a0',
-                            font: {
-                                size: 12
-                            }
-                        },
-                        ticks: {
-                            color: '#e0e0e0',
-                            maxTicksLimit: 8,
-                            autoSkip: true
-                        },
-                        grid: {
-                            color: 'rgba(255,255,255,0.1)'
-                        }
-                    },
-                    y: {
-                        min: 0,
-                        max: 10,
-                        title: {
-                            display: true,
-                            text: 'NRS',
-                            color: '#a0a0a0',
-                            font: {
-                                size: 12
-                            }
-                        },
-                        ticks: {
-                            color: '#e0e0e0',
-                            stepSize: 1
-                        },
-                        grid: {
-                            color: 'rgba(255,255,255,0.1)'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#e0e0e0',
-                            font: {
-                                size: 12
-                            }
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(30, 30, 30, 0.9)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#e0e0e0',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1,
-                        callbacks: {
-                            title: function(tooltipItems) {
-                                if (tooltipItems.length > 0) {
-                                    const index = tooltipItems[0].dataIndex;
-                                    if (index < nrsChart.data.labels.length) {
-                                        // Find corresponding impact in history
-                                        const label = nrsChart.data.labels[index];
-                                        // Try to find matching impact by time
-                                        for (let i = impactHistory.length - 1; i >= 0; i--) {
-                                            const impact = impactHistory[i];
-                                            const impactLabel = new Date(impact.time).toLocaleTimeString();
-                                            if (impactLabel === label && typeof impact.nrs === 'number') {
-                                                return new Date(impact.time).toLocaleString();
-                                            }
-                                        }
-                                    }
-                                }
-                                return '';
-                            },
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(1);
-                                }
-                                return label;
-                            },
-                            afterLabel: function(context) {
-                                const index = context.dataIndex;
-                                if (index < nrsChart.data.labels.length) {
-                                    const label = nrsChart.data.labels[index];
-                                    // Find corresponding impact in history
-                                    for (let i = impactHistory.length - 1; i >= 0; i--) {
-                                        const impact = impactHistory[i];
-                                        const impactLabel = new Date(impact.time).toLocaleTimeString();
-                                        if (impactLabel === label && typeof impact.nrs === 'number') {
-                                            return [
-                                                `ISS: ${impact.iss.toFixed(2)} (Impact Severity Score)`,
-                                                `AWE: ${(impact.awe || 0).toFixed(2)} (Acute Weighted Exposure)`,
-                                                `CLI: ${(impact.cli || 0).toFixed(2)} (Chronic Load Index)`,
-                                                `Accel: ${impact.a_peak.toFixed(1)}g (Linear Acceleration)`,
-                                                `Gyro: ${Math.round(impact.alpha_peak)} rad/s² (Rotational Acceleration)`
-                                            ].join('\n');
-                                        }
-                                    }
-                                }
-                                return '';
-                            }
-                        }
-                    }
-                },
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
-                },
-                elements: {
-                    point: {
-                        radius: 5,
-                        hoverRadius: 7
-                    }
-                }
-            }
-        });
+        const nrsChart = new Chart(document.getElementById('nrsChartCanvas').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'NRS', data: [], borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', borderWidth: 2, fill: true, tension: 0.2, pointRadius: 0, spanGaps: false }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, plugins: { zoom: { zoom: { wheel: { enabled: true, speed: 0.005 }, pinch: { enabled: true }, mode: 'xy' }, pan: { enabled: true, mode: 'xy', speed: 0.0025 } }, legend: { labels: { color: '#e0e0e0', font: { size: 12 } } }, tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(30, 30, 30, 0.9)', titleColor: '#ffffff', bodyColor: '#e0e0e0' } }, scales: { x: { title: { display: true, text: 'Time', color: '#a0a0a0' }, ticks: { color: '#e0e0e0', maxTicksLimit: 8, autoSkip: true }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { min: 0, max: 10, title: { display: true, text: 'NRS', color: '#a0a0a0' }, ticks: { color: '#e0e0e0', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.1)' } } }, elements: { point: { radius: 0 } } } });
+        function updateNRSRealtime() { const now = Date.now(); let awe = 0; impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / 86400000; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); }); currentAWE = awe; const nrs = 0.5 * latestISS + 0.3 * awe + 0.2 * cli; currentNRS = Math.max(0, nrs); nrsScoreEl.textContent = currentNRS.toFixed(1); aweScoreEl.textContent = awe.toFixed(2); updateRiskLevel(currentNRS); nrsChart.data.labels.push(new Date(now).toLocaleTimeString()); nrsChart.data.datasets[0].data.push(currentNRS); if (nrsChart.data.labels.length > NRS_VISIBLE_POINTS) { nrsChart.data.labels.shift(); nrsChart.data.datasets[0].data.shift(); } nrsChart.update('none'); lastNRSUpdate = now; saveImpactHistory(); }
+        function startNRSUpdateInterval() { if (nrsUpdateInterval) clearInterval(nrsUpdateInterval); nrsUpdateInterval = setInterval(updateNRSRealtime, NRS_UPDATE_INTERVAL); }
+        startNRSUpdateInterval();
 
-        // === Live Graphs Setup ===
-        const RENDER_FPS = 30; // chart redraw rate
-        const chartBuffers = new Map();
-
-        function createChart(ctx, labelPrefix, yAxisLabel) {
-            const chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        { label: `${labelPrefix} X`, borderColor: 'rgb(239, 68, 68)', backgroundColor: 'rgba(239, 68, 68, 0.2)', data: [], tension: 0.1 },
-                        { label: `${labelPrefix} Y`, borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)', data: [], tension: 0.1 },
-                        { label: `${labelPrefix} Z`, borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.2)', data: [], tension: 0.1 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: '#e0e0e0' } },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => {
-                                    const c = items[0].chart;
-                                    const idx = items[0].dataIndex;
-                                    const t = c.$times?.[idx];
-                                    return t ? `Time: ${new Date(t).toLocaleTimeString()}` : '';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: { display: true, text: 'Time', color: '#a0a0a0' },
-                            ticks: { display: false },
-                            grid: { display: false }
-                        },
-                        y: {
-                            title: { display: true, text: yAxisLabel, color: '#a0e0e0' },
-                            min: -MIN_Y_RANGE, max: MIN_Y_RANGE,
-                            ticks: { 
-                                stepSize: 1, 
-                                color: '#e0e0e0',
-                                callback: function(value) {
-                                    return parseFloat(value.toFixed(1));
-                                }
-                            },
-                            grid: { color: (ctx) => ctx.tick.value === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 }
-                        }
-                    },
-                    elements: { point: { radius: 0 } }
-                }
-            });
-            chart.$times = [];
-            return chart;
-        }
-
+        const RENDER_FPS = 60; const chartBuffers = new Map();
+        function createChart(ctx, labelPrefix, yAxisLabel) { const chart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [ { label: `${labelPrefix} X`, borderColor: 'rgb(239, 68, 68)', data: [], tension: 0.1, pointRadius: 0 }, { label: `${labelPrefix} Y`, borderColor: 'rgb(59, 130, 246)', data: [], tension: 0.1, pointRadius: 0 }, { label: `${labelPrefix} Z`, borderColor: 'rgb(16, 185, 129)', data: [], tension: 0.1, pointRadius: 0 } ] }, options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false }, plugins: { zoom: { zoom: { wheel: { enabled: true, speed: 0.005 }, pinch: { enabled: true }, mode: 'y' }, pan: { enabled: true, mode: 'x', speed: 0.0025 } }, legend: { labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: '#e0e0e0' } }, tooltip: { callbacks: { title: (items) => { const t = items[0].chart.$times?.[items[0].dataIndex]; return t ? `Time: ${new Date(t).toLocaleTimeString()}` : ''; } } } }, scales: { x: { title: { display: true, text: 'Time', color: '#a0a0a0' }, ticks: { display: false }, grid: { display: false } }, y: { title: { display: true, text: yAxisLabel, color: '#a0e0e0' }, min: -MIN_Y_RANGE, max: MIN_Y_RANGE, ticks: { stepSize: 1, color: '#e0e0e0', callback: v => parseFloat(v.toFixed(1)) }, grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 } } }, elements: { point: { radius: 0 } } } }); chart.$times = []; return chart; }
         const accelChart = createChart(document.getElementById('accelChartCanvas').getContext('2d'), 'Accel', 'm/s²');
-        const gyroChart  = createChart(document.getElementById('gyroChartCanvas').getContext('2d'), 'Gyro',  'rad/s');
-
-        // attach per-chart timestamp arrays
-        accelChart.$times = [];
-        gyroChart.$times  = [];
-
+        const gyroChart = createChart(document.getElementById('gyroChartCanvas').getContext('2d'), 'Gyro', 'rad/s');
         chartBuffers.set(accelChart, { x: [], y: [], z: [], labels: [], times: [] });
-        chartBuffers.set(gyroChart,  { x: [], y: [], z: [], labels: [], times: [] });
+        chartBuffers.set(gyroChart, { x: [], y: [], z: [], labels: [], times: [] });
 
-        function scheduleChartPoint(chart, timeMs, x, y, z) {
-            const b = chartBuffers.get(chart);
-            b.x.push(x); b.y.push(y); b.z.push(z);
-            b.labels.push('');
-            b.times.push(timeMs);
-        }
+        function setupChartInteractions() { const charts = [ { canvas: document.getElementById('nrsChartCanvas'), chart: nrsChart, type: 'nrs' }, { canvas: document.getElementById('accelChartCanvas'), chart: accelChart, type: 'accel' }, { canvas: document.getElementById('gyroChartCanvas'), chart: gyroChart, type: 'gyro' } ]; charts.forEach(({ canvas, chart, type }) => { let holdTimeout, isHolding = false, isDragging = false; canvas.addEventListener('mousedown', () => { isHolding = false; isDragging = false; holdTimeout = setTimeout(() => { if (!isDragging) { isHolding = true; chart.resetZoom(); canvas.style.opacity = '0.7'; setTimeout(() => { canvas.style.opacity = '1'; }, 200); } }, 500); }); canvas.addEventListener('mousemove', () => { if (!isHolding) { isDragging = true; clearTimeout(holdTimeout); } }); canvas.addEventListener('mouseup', () => { clearTimeout(holdTimeout); isDragging = false; }); canvas.addEventListener('mouseleave', () => { clearTimeout(holdTimeout); isDragging = false; }); canvas.addEventListener('dblclick', e => { e.preventDefault(); openFullscreen(type); }); canvas.addEventListener('touchstart', () => { isHolding = false; holdTimeout = setTimeout(() => { isHolding = true; chart.resetZoom(); canvas.style.opacity = '0.7'; setTimeout(() => { canvas.style.opacity = '1'; }, 200); }, 500); }); canvas.addEventListener('touchend', () => clearTimeout(holdTimeout)); canvas.addEventListener('contextmenu', e => e.preventDefault()); }); }
+        function openFullscreen(type) { const modal = document.getElementById('fullscreen-modal'); const title = document.getElementById('fullscreen-title'); const canvas = document.getElementById('fullscreenChartCanvas'); currentFullscreenType = type; if (fullscreenChart) fullscreenChart.destroy(); let sourceChart; if (type === 'nrs') { sourceChart = nrsChart; title.textContent = 'Neurological Risk Score (NRS)'; } else if (type === 'accel') { sourceChart = accelChart; title.textContent = 'Accelerometer Data'; } else if (type === 'gyro') { sourceChart = gyroChart; title.textContent = 'Gyroscope Data'; } fullscreenChart = new Chart(canvas.getContext('2d'), { type: sourceChart.config.type, data: JSON.parse(JSON.stringify(sourceChart.data)), options: { ...sourceChart.config.options, plugins: { ...sourceChart.config.options.plugins, zoom: { limits: { y: { min: -100, max: 100 } }, zoom: { wheel: { enabled: true, speed: 0.005 }, pinch: { enabled: true }, mode: 'xy' }, pan: { enabled: true, mode: 'xy', speed: 0.0025, modifierKey: null } } }, elements: { point: { radius: 0 } } } }); if (sourceChart.$times) fullscreenChart.$times = [...sourceChart.$times]; modal.style.display = 'block'; if (type !== 'nrs') startFullscreenUpdate(sourceChart); }
+        function closeFullscreen() { document.getElementById('fullscreen-modal').style.display = 'none'; if (fullscreenChart) { fullscreenChart.destroy(); fullscreenChart = null; } stopFullscreenUpdate(); }
+        function resetZoom() { if (fullscreenChart) fullscreenChart.resetZoom(); }
+        let fullscreenUpdateInterval = null;
+        function startFullscreenUpdate(sourceChart) { stopFullscreenUpdate(); fullscreenUpdateInterval = setInterval(() => { if (fullscreenChart && sourceChart) { fullscreenChart.data = JSON.parse(JSON.stringify(sourceChart.data)); if (sourceChart.$times) fullscreenChart.$times = [...sourceChart.$times]; fullscreenChart.update('none'); } }, 100); }
+        function stopFullscreenUpdate() { if (fullscreenUpdateInterval) { clearInterval(fullscreenUpdateInterval); fullscreenUpdateInterval = null; } }
 
-        function commitChart(chart, buf) {
-            if (buf.x.length === 0) return;
+        function scheduleChartPoint(chart, timeMs, x, y, z) { const b = chartBuffers.get(chart); b.x.push(x); b.y.push(y); b.z.push(z); b.labels.push(''); b.times.push(timeMs); }
+        function commitChart(chart, buf) { if (buf.x.length === 0) return; const ds = chart.data.datasets; ds[0].data.push(...buf.x); ds[1].data.push(...buf.y); ds[2].data.push(...buf.z); chart.data.labels.push(...buf.labels); chart.$times.push(...buf.times); const over = chart.data.labels.length - VISIBLE_DATA_POINTS; if (over > 0) { ds.forEach(d => d.data.splice(0, over)); chart.data.labels.splice(0, over); chart.$times.splice(0, over); } let maxAbs = 0; const len = ds[0].data.length; for (let i = 0; i < len; i++) { if (ds[0].data[i] !== null) maxAbs = Math.max(maxAbs, Math.abs(ds[0].data[i]), Math.abs(ds[1].data[i]), Math.abs(ds[2].data[i])); } const desired = Math.max(maxAbs * (1 + Y_BUFFER_PERCENTAGE), MIN_Y_RANGE); const roundedDesired = Math.ceil(desired * 10) / 10; if (Math.abs(chart.options.scales.y.max - roundedDesired) > 0.1) { chart.options.scales.y.min = -roundedDesired; chart.options.scales.y.max = roundedDesired; } chart.update('none'); buf.x.length = buf.y.length = buf.z.length = buf.labels.length = buf.times.length = 0; }
+        let lastFrame = 0; function rafCommit(t) { if (t - lastFrame >= (1000 / RENDER_FPS)) { for (const [chart, buf] of chartBuffers.entries()) commitChart(chart, buf); lastFrame = t; } requestAnimationFrame(rafCommit); } requestAnimationFrame(rafCommit);
 
-            const ds = chart.data.datasets;
-            ds[0].data.push(...buf.x);
-            ds[1].data.push(...buf.y);
-            ds[2].data.push(...buf.z);
-            chart.data.labels.push(...buf.labels);
-            chart.$times.push(...buf.times);
+        function smoothData(rawData, historyBuffer) { ['x', 'y', 'z'].forEach(axis => { historyBuffer[axis].push(rawData[axis]); if (historyBuffer[axis].length > SMOOTHING_WINDOW_SIZE) { historyBuffer[axis].shift(); } }); const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length; return { x: avg(historyBuffer.x), y: avg(historyBuffer.y), z: avg(historyBuffer.z) }; }
+        function detectImpact(a, g) { if (impactDetectionDisabled || isPaused) return; const now = Date.now(); if (now - lastImpactTime < DEAD_TIME_MS) return; const a_mag_mss = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2); const a_mag_g = a_mag_mss / 9.81; const g_multiplied = { x: g.x * GYRO_MULTIPLIER, y: g.y * GYRO_MULTIPLIER, z: g.z * GYRO_MULTIPLIER }; const omega_mag = Math.sqrt(g_multiplied.x ** 2 + g_multiplied.y ** 2 + g_multiplied.z ** 2); const alpha_mag = (omega_mag - (lastGyro || 0)) / 0.01; lastGyro = omega_mag; if (a_mag_g < MIN_LINEAR_G) return; if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return; const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000); if (whise >= WHISE_THRESHOLD) { lastImpactTime = now; const iss = Math.log10(1 + a_mag_g) * (1 + Math.abs(alpha_mag) / 5000) * 1.3; const impact = { time: now, a_peak: a_mag_g, alpha_peak: Math.abs(alpha_mag), iss: parseFloat(iss.toFixed(2)) }; impactHistory.push(impact); saveImpactHistory(); processImpact(impact); } }
 
-            // Trim once per frame
-            const over = chart.data.labels.length - VISIBLE_DATA_POINTS;
-            if (over > 0) {
-                ds.forEach(d => d.data.splice(0, over));
-                chart.data.labels.splice(0, over);
-                chart.$times.splice(0, over);
-            }
+        function onDisconnected() { updateConnectionStatus('disconnected'); pauseButton.classList.add('hidden'); impactDetectionDisabled = true; isPaused = false; }
+        async function connectToBle() { try { updateConnectionStatus('connecting'); if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported."); bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ name: DEVICE_NAME }], optionalServices: [SERVICE_UUID] }); bleDevice.addEventListener('gattserverdisconnected', onDisconnected); const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(SERVICE_UUID); bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID); await bleCharacteristic.startNotifications(); bleCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged); updateConnectionStatus('connected'); pauseButton.classList.remove('hidden'); connectedAt = Date.now(); impactDetectionDisabled = true; setTimeout(() => { instantZeroSensors(); impactDetectionDisabled = false; }, 500); } catch (error) { console.error("BLE Connection error:", error); updateConnectionStatus('disconnected'); if (error.name === 'NotFoundError') { showCustomAlert("No device selected."); } else { showCustomAlert("BLE Error: " + error.message); } } }
+        async function disconnectBle() { if (bleDevice && bleDevice.gatt.connected) await bleDevice.gatt.disconnect(); }
+        
+        connectButton.addEventListener('click', async () => { const status = connectButton.querySelector('.status-text').textContent; if (status === 'Connected') await disconnectBle(); else if (status === 'Disconnected') await connectToBle(); });
+        pauseButton.addEventListener('click', togglePause);
+        clearHistoryButton.addEventListener('click', clearImpactHistory);
+        helpButton.addEventListener('click', () => { document.getElementById('shortcuts-modal').style.display = 'block'; });
 
-            // Recalc y range from recent window
-            const len = ds[0].data.length;
-            const start = Math.max(0, len - 200);
-            let maxAbs = 0;
-            for (let i = start; i < len; i++) {
-                const ax = Math.abs(ds[0].data[i]); if (ax > maxAbs) maxAbs = ax;
-                const ay = Math.abs(ds[1].data[i]); if (ay > maxAbs) maxAbs = ay;
-                const az = Math.abs(ds[2].data[i]); if (az > maxAbs) maxAbs = az;
-            }
-            
-            // Fix for rounding errors and glitchy display
-            const desired = Math.max(maxAbs * (1 + Y_BUFFER_PERCENTAGE), MIN_Y_RANGE);
-            const roundedDesired = Math.round(desired * 10) / 10; // Round to 1 decimal place
-            chart.options.scales.y.min = -roundedDesired;
-            chart.options.scales.y.max =  roundedDesired;
-
-            chart.update('none');
-
-            // Clear buffer
-            buf.x.length = buf.y.length = buf.z.length = buf.labels.length = buf.times.length = 0;
-        }
-
-        let lastFrame = 0;
-        function rafCommit(t) {
-            if (t - lastFrame >= (1000 / RENDER_FPS)) {
-                for (const [chart, buf] of chartBuffers.entries()) commitChart(chart, buf);
-                lastFrame = t;
-            }
-            requestAnimationFrame(rafCommit);
-        }
-        requestAnimationFrame(rafCommit);
-
-        // === Smoothing Function ===
-        function smoothData(rawData, historyBuffer) {
-            ['x','y','z'].forEach(axis => {
-                historyBuffer[axis].push(rawData[axis]);
-                if (historyBuffer[axis].length > SMOOTHING_WINDOW_SIZE) {
-                    historyBuffer[axis].shift();
-                }
-            });
-            const avg = (arr) => arr.reduce((a,b) => a+b, 0) / arr.length;
-            return {
-                x: avg(historyBuffer.x),
-                y: avg(historyBuffer.y),
-                z: avg(historyBuffer.z)
-            };
-        }
-
-        // === Zeroing Logic ===
-        const ZEROING_SAMPLES = 25;
-        let zeroingSampleCount = 0;
-        let zeroingSamples = {
-            s1: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-            s2: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-            s3: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-            s4: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } }
-        };
-        let isZeroing = false;
-
-        function startZeroing() {
-            if (isZeroing) return;
-            isZeroing = true;
-            zeroingSampleCount = 0;
-            zeroingSamples = {
-                s1: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-                s2: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-                s3: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } },
-                s4: { accel: { x: [], y: [], z: [] }, gyro: { x: [], y: [], z: [] } }
-            };
-            zeroButton.disabled = true;
-            zeroButton.textContent = 'Zeroing...';
-            statusMessage.textContent = 'Zeroing sensors... Keep device still.';
-        }
-
-        function calculateNewOffsets(sensorData) {
-            if (!isZeroing) return;
-            for (let i = 1; i <= 4; i++) {
-                const key = `sensor${i}`;
-                const s = `s${i}`;
-                ['x','y','z'].forEach(ax => {
-                    zeroingSamples[s].accel[ax].push(sensorData[key].accel[ax]);
-                    zeroingSamples[s].gyro[ax].push(sensorData[key].gyro[ax] * GYRO_MULTIPLIER); // Apply multiplier
-                });
-            }
-            zeroingSampleCount++;
-            statusMessage.textContent = `Zeroing... ${zeroingSampleCount}/${ZEROING_SAMPLES}`;
-            if (zeroingSampleCount >= ZEROING_SAMPLES) {
-                isZeroing = false;
-                zeroButton.disabled = false;
-                zeroButton.textContent = 'Zero Sensors';
-                statusMessage.textContent = 'Zeroing complete.';
-                for (let i = 1; i <= 4; i++) {
-                    const s = `s${i}`;
-                    const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
-                    offsets[s].accel.x = avg(zeroingSamples[s].accel.x);
-                    offsets[s].accel.y = avg(zeroingSamples[s].accel.y);
-                    offsets[s].accel.z = avg(zeroingSamples[s].accel.z);
-                    offsets[s].gyro.x = avg(zeroingSamples[s].gyro.x);
-                    offsets[s].gyro.y = avg(zeroingSamples[s].gyro.y);
-                    offsets[s].gyro.z = avg(zeroingSamples[s].gyro.z);
-                }
-            }
-        }
-
-        // === Impact Detection ===
-        function detectImpact(sensorData, a, g, sensorId) {
-            const now = Date.now();
-            if (now - lastImpactTime < DEAD_TIME_MS) return;
-
-            const a_mag_mss = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
-            const a_mag_g = a_mag_mss / 9.81;
-
-            // Apply multiplier to gyro values for impact detection
-            const g_multiplied = {
-                x: g.x * GYRO_MULTIPLIER,
-                y: g.y * GYRO_MULTIPLIER,
-                z: g.z * GYRO_MULTIPLIER
-            };
-
-            const omega_mag = Math.sqrt(g_multiplied.x**2 + g_multiplied.y**2 + g_multiplied.z**2);
-            const alpha_mag = (omega_mag - (lastGyro[sensorId] || 0)) / 0.01;  // assuming 100 Hz (10 ms)
-            lastGyro[sensorId] = omega_mag;
-
-            if (a_mag_g < MIN_LINEAR_G) return;
-            if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return;
-
-            const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000);
-
-            if (whise >= WHISE_THRESHOLD) {
-                lastImpactTime = now;
-                const iss = Math.log10(1 + a_mag_g) * (1 + Math.abs(alpha_mag) / 5000) * 1.3;
-                const impact = {
-                    time: now,
-                    sensor: sensorId,
-                    a_peak: a_mag_g,
-                    alpha_peak: Math.abs(alpha_mag),
-                    iss: parseFloat(iss.toFixed(2))
-                };
-                impactHistory.push(impact);
-                saveImpactHistory(); // Save to localStorage
-                processImpact(impact);
-            }
-        }
-
-        // === Risk Scoring Engine ===
-        function processImpact(impact) {
-            cli = CLI_DECAY * cli + (1 - CLI_DECAY) * impact.iss;
-            const now = Date.now();
-            const oneDay = 24*60*60*1000;
-            impactHistory = impactHistory.filter(imp => (now - imp.time) < 7 * oneDay);
-            let awe = 0;
-            impactHistory.forEach(imp => {
-                const daysAgo = (now - imp.time) / oneDay;
-                awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo);
-            });
-
-            const nrs = 0.5 * impact.iss + 0.3 * awe + 0.2 * cli;
-            const nrsRounded = Math.round(nrs * 10) / 10;
-
-            // Add NRS to impact for storage
-            impact.nrs = nrsRounded;
-            impact.awe = awe;
-            impact.cli = cli;
-
-            nrsScoreEl.textContent = nrsRounded.toFixed(1);
-            latestImpactEl.textContent = `ISS: ${impact.iss}, A: ${impact.a_peak.toFixed(1)}g, R: ${impact.alpha_peak.toFixed(0)} rad/s²`;
-
-            // Add data point to chart
-            const timeStr = new Date(impact.time).toLocaleTimeString();
-            nrsChart.data.labels.push(timeStr);
-            nrsChart.data.datasets[0].data.push(nrsRounded);
-            
-            // Limit data points to prevent chart overload
-            if (nrsChart.data.labels.length > 50) {
-                nrsChart.data.labels.shift();
-                nrsChart.data.datasets[0].data.shift();
-                // Also remove from impactHistory if needed
-                if (impactHistory.length > 50) {
-                    impactHistory.shift();
-                }
-            }
-            
-            nrsChart.update('none');
-
-            if (nrsRounded < 3) {
-                nrsLevelEl.className = 'risk-level risk-low'; nrsLevelEl.textContent = 'Low Risk';
-            } else if (nrsRounded < 6) {
-                nrsLevelEl.className = 'risk-level risk-moderate'; nrsLevelEl.textContent = 'Moderate';
-            } else if (nrsRounded < 8) {
-                nrsLevelEl.className = 'risk-level risk-high'; nrsLevelEl.textContent = 'High - Evaluate';
-                showCustomAlert(`High Risk Detected!\nNRS: ${nrsRounded}\nSideline assessment recommended.`);
-            } else {
-                nrsLevelEl.className = 'risk-level risk-severe'; nrsLevelEl.textContent = 'Severe - Stop';
-                showCustomAlert(`SEVERE IMPACT!\nNRS: ${nrsRounded}\nImmediate medical evaluation required.`);
-            }
-
-            aweScoreEl.textContent = awe.toFixed(2);
-            cliScoreEl.textContent = cli.toFixed(2);
-        }
-
-        // === Main Data Handler ===
+        document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; switch (e.key.toLowerCase()) { case 'escape': document.getElementById('alert-modal').style.display = 'none'; document.getElementById('shortcuts-modal').style.display = 'none'; if (fullscreenChart) closeFullscreen(); break; case 'c': if (!e.ctrlKey && !e.metaKey) connectButton.click(); break; case 'p': if (!e.ctrlKey && !e.metaKey && isConnected) togglePause(); break; case 'delete': clearHistoryButton.click(); break; case 'd': if (!e.ctrlKey && !e.metaKey) document.querySelector('details').open = !document.querySelector('details').open; break; case '?': if (e.shiftKey) document.getElementById('shortcuts-modal').style.display = 'block'; break; } });
+        window.onclick = e => { if (e.target.className === 'modal') e.target.style.display = 'none'; };
+        window.addEventListener('DOMContentLoaded', () => { setupChartInteractions(); });
+        window.addEventListener('load', () => { loadImpactHistory(); });
+        
         function handleCharacteristicValueChanged(event) {
             const value = event.target.value;
             const decoder = new TextDecoder('utf-8');
             const receivedString = decoder.decode(value);
-
             liveFeed.textContent = receivedString;
             liveFeed.scrollTop = liveFeed.scrollHeight;
-
-            // Parse-only try/catch
-            let sensorData;
             try {
-                sensorData = JSON.parse(receivedString);
-            } catch (e) {
-                console.error("JSON parse error:", e, receivedString);
-                showCustomAlert("Invalid JSON: " + receivedString);
+                latestSensorData = JSON.parse(receivedString);
+                if (isPaused || !latestSensorData.sensor) return;
+                
+                const smoothedA = smoothData(latestSensorData.sensor.accel, accelHistory);
+                const smoothedG = smoothData(latestSensorData.sensor.gyro, gyroHistory);
+                const zeroedA = { x: smoothedA.x - offsets.accel.x, y: smoothedA.y - offsets.accel.y, z: smoothedA.z - offsets.accel.z };
+                const zeroedG = { x: (smoothedG.x - offsets.gyro.x) * GYRO_MULTIPLIER, y: (smoothedG.y - offsets.gyro.y) * GYRO_MULTIPLIER, z: (smoothedG.z - offsets.gyro.z) * GYRO_MULTIPLIER };
+                
+                latestDisplay.a = zeroedA;
+                latestDisplay.g = zeroedG;
+                pushStillnessSample(smoothedA, smoothedG);
+                detectImpact(zeroedA, zeroedG);
+
+                if (performance.now() - lastDomFlush >= (1000 / DOM_FPS)) {
+                    accelXEl.textContent = zeroedA.x.toFixed(2); accelYEl.textContent = zeroedA.y.toFixed(2); accelZEl.textContent = zeroedA.z.toFixed(2);
+                    gyroXEl.textContent = zeroedG.x.toFixed(2); gyroYEl.textContent = zeroedG.y.toFixed(2); gyroZEl.textContent = zeroedG.z.toFixed(2);
+                    lastDomFlush = performance.now();
+                }
+
+                const nowMs = Date.now();
+                scheduleChartPoint(accelChart, nowMs, zeroedA.x, zeroedA.y, zeroedA.z);
+                scheduleChartPoint(gyroChart, nowMs, zeroedG.x, zeroedG.y, zeroedG.z);
+                checkAutoZero();
+            } catch (e) { console.error("Error in handler:", e); }
+        }
+
+        // ==================== AI ASSESSMENT CONFIGURATION (CLIENT-SIDE KEY) ====================
+        const AI_CONFIG = {
+            GROQ_API_KEY: '----', 
+            GROQ_MODEL: 'llama3-70b-8192',
+            AUTO_ASSESS_THRESHOLD: 6.0,
+            ASSESSMENT_COOLDOWN_MS: 30000,
+            MAX_HISTORY_FOR_AI: 20
+        };
+
+        let lastAssessmentTime = 0;
+        let assessmentInProgress = false;
+
+        async function performAssessment(trigger = 'manual') {
+            if (AI_CONFIG.GROQ_API_KEY === 'gsk_YOUR_GROQ_API_KEY_HERE') {
+                showCustomAlert('⚠️ AI Assessment Disabled\n\nPlease enter your Groq API key in the script to enable this feature.');
                 return;
             }
-
-            // Runtime guarded block
-            try {
-                if (isZeroing) {
-                    calculateNewOffsets(sensorData);
-                }
-
-                const accelAvg = { x: 0, y: 0, z: 0 };
-                const gyroAvg  = { x: 0, y: 0, z: 0 };
-
-                for (let i = 1; i <= 4; i++) {
-                    const key = `sensor${i}`;
-                    const s = `s${i}`;
-                    const rawA = sensorData[key].accel;
-                    const rawG = sensorData[key].gyro;
-
-                    const smoothedA = smoothData(rawA, accelHistory[s]);
-                    const smoothedG = smoothData(rawG,  gyroHistory[s]);
-
-                    const zeroedA = {
-                        x: smoothedA.x - offsets[s].accel.x,
-                        y: smoothedA.y - offsets[s].accel.y,
-                        z: smoothedA.z - offsets[s].accel.z
-                    };
-                    
-                    // Apply multiplier to gyro values for display and charts
-                    const zeroedG = {
-                        x: (smoothedG.x - offsets[s].gyro.x) * GYRO_MULTIPLIER,
-                        y: (smoothedG.y - offsets[s].gyro.y) * GYRO_MULTIPLIER,
-                        z: (smoothedG.z - offsets[s].gyro.z) * GYRO_MULTIPLIER
-                    };
-
-                    latestDisplay[s].a = zeroedA;
-                    latestDisplay[s].g = zeroedG;
-
-                    accelAvg.x += zeroedA.x;
-                    accelAvg.y += zeroedA.y;
-                    accelAvg.z += zeroedA.z;
-                    gyroAvg.x  += zeroedG.x;
-                    gyroAvg.y  += zeroedG.y;
-                    gyroAvg.z  += zeroedG.z;
-
-                    pushStillnessSample(s, smoothedA, smoothedG);
-
-                    detectImpact(sensorData, zeroedA, zeroedG, s);
-                }
-
-                const nowPerf = performance.now();
-                if (nowPerf - lastDomFlush >= (1000 / DOM_FPS)) {
-                    ['s1','s2','s3','s4'].forEach(ss => {
-                        sensorDisplays[ss].accel.x.textContent = latestDisplay[ss].a.x.toFixed(2);
-                        sensorDisplays[ss].accel.y.textContent = latestDisplay[ss].a.y.toFixed(2);
-                        sensorDisplays[ss].accel.z.textContent = latestDisplay[ss].a.z.toFixed(2);
-                        sensorDisplays[ss].gyro.x.textContent  = latestDisplay[ss].g.x.toFixed(2);
-                        sensorDisplays[ss].gyro.y.textContent  = latestDisplay[ss].g.y.toFixed(2);
-                        sensorDisplays[ss].gyro.z.textContent  = latestDisplay[ss].g.z.toFixed(2);
-                    });
-                    lastDomFlush = nowPerf;
-                }
-
-                if (!isZeroing) statusMessage.textContent = 'Receiving live data...';
-
-                // Schedule chart points with correct timestamp parameter
-                const nowMs = Date.now();
-                scheduleChartPoint(accelChart, nowMs, accelAvg.x/4, accelAvg.y/4, accelAvg.z/4);
-                scheduleChartPoint(gyroChart,  nowMs,  gyroAvg.x/4,  gyroAvg.y/4,  gyroAvg.z/4);
-
-                checkAutoZero();
-            } catch (e) {
-                console.error("Runtime error in handler:", e);
-                showCustomAlert("Runtime error: " + e.message);
+            if (assessmentInProgress) return;
+            const now = Date.now();
+            if (now - lastAssessmentTime < AI_CONFIG.ASSESSMENT_COOLDOWN_MS) {
+                showCustomAlert('Please wait before requesting another assessment.');
+                return;
             }
-        }
-
-        // === BLE Connection ===
-        function onDisconnected() {
-            statusMessage.textContent = 'Disconnected. Click connect to retry.';
-            connectButton.textContent = 'Connect to ESP32';
-            connectButton.disabled = false;
-            connectButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-            connectButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            zeroButton.classList.add('hidden');
-            isZeroing = false;
-        }
-
-        async function connectToBle() {
+            
+            assessmentInProgress = true;
+            lastAssessmentTime = now;
+            
+            aiDiagnosisButton.disabled = true;
+            aiDiagnosisButton.textContent = 'Analyzing...';
+            showCustomAlert('🔄 Analyzing impact data with AI advisor...');
+            
             try {
-                connectButton.textContent = 'Connecting...';
-                connectButton.disabled = true;
-                statusMessage.textContent = 'Finding device...';
+                // BUG FIX: Recalculate scores right before sending to ensure data is fresh
+                recalculateRiskScores();
 
-                if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported.");
+                const recentImpacts = impactHistory.slice(-AI_CONFIG.MAX_HISTORY_FOR_AI);
+                const impactStats = {
+                    total: impactHistory.length,
+                    last24h: impactHistory.filter(i => (now - i.time) < 86400000).length,
+                    mild: impactHistory.filter(i => i.a_peak < 20).length,
+                    moderate: impactHistory.filter(i => i.a_peak >= 20 && i.a_peak < 40).length,
+                    severe: impactHistory.filter(i => i.a_peak >= 40).length,
+                    avgISS: impactHistory.length > 0 ? (impactHistory.reduce((s, i) => s + (i.iss || 0), 0) / impactHistory.length).toFixed(2) : 0,
+                    maxAccel: Math.max(0, ...impactHistory.map(i => i.a_peak || 0)).toFixed(1),
+                    maxRotation: Math.max(0, ...impactHistory.map(i => i.alpha_peak || 0)).toFixed(0)
+                };
 
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: DEVICE_NAME }],
-                    optionalServices: [SERVICE_UUID]
+                const dataPayload = {
+                    user_context: { activity: "General Use", user_type: "Adult" },
+                    timestamp_utc: new Date().toISOString(),
+                    current_scores: { nrs: { value: parseFloat(currentNRS.toFixed(2)) }, awe: { value: parseFloat(currentAWE.toFixed(2)) }, cli: { value: parseFloat(cli.toFixed(2)) }, latest_iss: { value: parseFloat(latestISS.toFixed(2)) } },
+                    impact_statistics_7_days: { total_impacts: impactStats.total, impacts_last_24h: impactStats.last24h, peak_linear_accel_g: parseFloat(impactStats.maxAccel), peak_angular_accel_rad_s2: parseFloat(impactStats.maxRotation), average_iss: parseFloat(impactStats.avgISS), severity_distribution: { mild_under_20g: impactStats.mild, moderate_20_40g: impactStats.moderate, severe_over_40g: impactStats.severe } },
+                    impact_history_recent: recentImpacts.map(i => ({ time_utc: new Date(i.time).toISOString(), linear_accel_g: i.a_peak, angular_accel_rad_s2: i.alpha_peak, iss: i.iss, nrs_at_impact: i.nrs })),
+                    reference_thresholds: { concussion_risk_linear_g: 75, concussion_risk_angular_rad_s2: 4500 }
+                };
+
+                const systemPrompt = `You are an AI Health & Safety Advisor specializing in interpreting biomechanical data from head-mounted sensors. Your core directives are: 1. **Objective Risk Assessment:** Provide a calm, objective, data-driven assessment. Avoid sensational language. 2. **Balanced Perspective:** Explicitly identify low-risk situations where continued activity is appropriate. Not every impact requires stopping. 3. **General Audience:** Frame advice for a general user (cyclist, worker, child). Avoid technical jargon. 4. **Data-Driven:** Base your entire analysis strictly on the JSON data provided. 5. **Action-Oriented:** Provide clear, simple, practical steps, including reassurance when risk is low. 6. **Mandatory Disclaimer:** Conclude every response with the provided disclaimer.`;
+                const userPrompt = `Analyze the provided head impact data and give a safety assessment. <CONTEXT> The user is a general consumer, not necessarily a professional athlete. The activity is: ${dataPayload.user_context.activity}. </CONTEXT> <DATA> ${JSON.stringify(dataPayload, null, 2)} </DATA> <INSTRUCTIONS> 1. **Task:** Based on the JSON data, provide a safety assessment. 2. **Output Format:** Your entire response must be in GitHub-flavored Markdown. 3. **Tone:** Calm, informative, and reassuring, not alarmist. 4. **Structure and Risk Levels:** Use this exact structure and definitions: - \`### 📊 Risk Level\` (Choose ONE: **Negligible**, **Low**, **Moderate**, or **High**.) - \`### 📝 Key Observations\` (Explain *why*.) - \`### ✅ Recommended Actions\` (For Negligible/Low Risk, MUST include: **"No immediate action is needed. You can safely continue your activity."**) - \`### 👀 Symptoms to Watch For (As a Precaution)\` - \`### 🚶‍♀️ Guidance on Activities\` - \`---\` - \`*DISCLAIMER: This AI assessment is for demonstration purposes only and is not a substitute for professional medical advice. Always consult a qualified medical professional for any health concerns or before making any decisions related to your health or treatment. If you believe you have a medical emergency, call 911 immediately.*\` </INSTRUCTIONS>`;
+                
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AI_CONFIG.GROQ_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: AI_CONFIG.GROQ_MODEL,
+                        messages: [ { role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt } ],
+                        temperature: 0.3, max_tokens: 500
+                    })
                 });
 
-                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-                const server = await bleDevice.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-                await bleCharacteristic.startNotifications();
-                bleCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`API Error ${response.status}: ${errorData.error?.message || response.statusText}`);
+                }
 
-                statusMessage.textContent = 'Connected!';
-                connectButton.textContent = 'Connected';
-                connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                zeroButton.classList.remove('hidden');
-
-                connectedAt = Date.now();
+                const data = await response.json();
+                const diagnosisMarkdown = data.choices[0].message.content;
+                const diagnosisHtml = marked.parse(diagnosisMarkdown);
+                showCustomAlert(diagnosisHtml, true);
+                
             } catch (error) {
-                const msg = error.message || error.name;
-                statusMessage.textContent = 'Failed: ' + (msg.includes('found') ? 'Device not found.' : 'Connection error.');
-                connectButton.textContent = 'Connect';
-                connectButton.disabled = false;
-                connectButton.classList.remove('bg-green-600');
-                connectButton.classList.add('bg-blue-600');
-                showCustomAlert("BLE Error: " + msg);
+                console.error('Assessment error:', error);
+                let errorMessage = 'Assessment Error:\n\n';
+                if (error.message.includes('401')) errorMessage += '❌ Invalid API Key\n\nPlease check your Groq API key in the script.';
+                else if (error.message.includes('fetch')) errorMessage += '🌐 Network Error\n\nPlease check your internet connection.';
+                else errorMessage += `❌ ${error.message}`;
+                showCustomAlert(errorMessage);
+            } finally {
+                assessmentInProgress = false;
+                aiDiagnosisButton.disabled = false;
+                aiDiagnosisButton.textContent = 'Get AI Assessment';
             }
         }
 
-        // === Event Listeners ===
-        connectButton.addEventListener('click', connectToBle);
-        zeroButton.addEventListener('click', startZeroing);
-        clearHistoryButton.addEventListener('click', clearImpactHistory);
-
-        window.onclick = (e) => {
-            if (e.target.id === 'alert-modal') {
-                document.getElementById('alert-modal').style.display = 'none'
+        function processImpact(impact) {
+            cli = CLI_DECAY * cli + (1 - CLI_DECAY) * impact.iss;
+            const now = Date.now();
+            let awe = 0;
+            impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / 86400000; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); });
+            currentAWE = awe;
+            latestISS = impact.iss;
+            const nrs = 0.5 * impact.iss + 0.3 * awe + 0.2 * cli;
+            currentNRS = Math.round(nrs * 10) / 10;
+            impact.nrs = currentNRS; impact.awe = awe; impact.cli = cli;
+            nrsScoreEl.textContent = currentNRS.toFixed(1);
+            aweScoreEl.textContent = awe.toFixed(2);
+            cliScoreEl.textContent = cli.toFixed(2);
+            updateRiskLevel(currentNRS);
+            
+            if (currentNRS >= AI_CONFIG.AUTO_ASSESS_THRESHOLD) {
+                console.log(`High impact detected (NRS: ${currentNRS}), triggering auto-assessment...`);
+                setTimeout(() => performAssessment('auto'), 1500);
             }
+            updateNRSRealtime();
+            startNRSUpdateInterval();
         }
 
-        // Load impact history on page load
-        window.addEventListener('load', () => {
-            loadImpactHistory();
-        });
+        aiDiagnosisButton.addEventListener('click', () => performAssessment('manual'));
+
     </script>
 </body>
 </html>
