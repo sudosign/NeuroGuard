@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -138,13 +137,6 @@
             animation: fadeIn 0.3s ease-in-out;
             color: #e0e0e0;
         }
-        /* Style the AI response markdown */
-        #alert-message h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; border-bottom: 1px solid #444; padding-bottom: 0.25rem; }
-        #alert-message ul { list-style-type: disc; margin-left: 1.5rem; }
-        #alert-message li { margin-bottom: 0.25rem; }
-        #alert-message strong { color: #81c784; }
-        #alert-message hr { border-color: #444; margin-top: 1rem; margin-bottom: 1rem; }
-
         .close-button {
             color: #888;
             float: right;
@@ -342,9 +334,6 @@
         <div id="risk-dashboard" class="bg-gray-800 p-4 rounded-xl shadow-xl mb-6">
             <div class="risk-header">
                 <h2 class="text-lg font-semibold text-gray-200">Headband Impact Risk Assessment</h2>
-                <button id="aiDiagnosisButton" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
-                    Get AI Assessment
-                </button>
                 <button id="clearHistoryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
                     Clear History
                 </button>
@@ -490,14 +479,10 @@
         let isPaused = false;
         let latestSensorData = null;
 
-        function showCustomAlert(content, isHtml = false) {
+        function showCustomAlert(content) {
             const modal = document.getElementById('alert-modal');
             const alertMessage = document.getElementById('alert-message');
-            if (isHtml) {
-                alertMessage.innerHTML = content;
-            } else {
-                alertMessage.textContent = content;
-            }
+            alertMessage.textContent = content;
             modal.style.display = 'block';
         }
 
@@ -510,7 +495,6 @@
         const clearHistoryButton = document.getElementById('clearHistoryButton');
         const helpButton = document.getElementById('helpButton');
         const liveFeed = document.getElementById('live-feed');
-        const aiDiagnosisButton = document.getElementById('aiDiagnosisButton');
         const accelXEl = document.getElementById('accelX');
         const accelYEl = document.getElementById('accelY');
         const accelZEl = document.getElementById('accelZ');
@@ -686,6 +670,8 @@
                 latestImpact.nrs = currentNRS;
                 latestImpact.awe = awe;
                 latestImpact.cli = cli;
+            } else {
+                resetRiskScores();
             }
         }
         function updateRiskLevel(nrs) {
@@ -770,126 +756,39 @@
             } catch (e) { console.error("Error in handler:", e); }
         }
 
-        // ==================== AI ASSESSMENT CONFIGURATION (CLIENT-SIDE KEY) ====================
-        const AI_CONFIG = {
-            GROQ_API_KEY: '----', 
-            GROQ_MODEL: 'llama3-70b-8192',
-            AUTO_ASSESS_THRESHOLD: 6.0,
-            ASSESSMENT_COOLDOWN_MS: 30000,
-            MAX_HISTORY_FOR_AI: 20
-        };
-
-        let lastAssessmentTime = 0;
-        let assessmentInProgress = false;
-
-        async function performAssessment(trigger = 'manual') {
-            if (AI_CONFIG.GROQ_API_KEY === 'gsk_YOUR_GROQ_API_KEY_HERE') {
-                showCustomAlert('⚠️ AI Assessment Disabled\n\nPlease enter your Groq API key in the script to enable this feature.');
-                return;
-            }
-            if (assessmentInProgress) return;
-            const now = Date.now();
-            if (now - lastAssessmentTime < AI_CONFIG.ASSESSMENT_COOLDOWN_MS) {
-                showCustomAlert('Please wait before requesting another assessment.');
-                return;
-            }
-            
-            assessmentInProgress = true;
-            lastAssessmentTime = now;
-            
-            aiDiagnosisButton.disabled = true;
-            aiDiagnosisButton.textContent = 'Analyzing...';
-            showCustomAlert('🔄 Analyzing impact data with AI advisor...');
-            
-            try {
-                // BUG FIX: Recalculate scores right before sending to ensure data is fresh
-                recalculateRiskScores();
-
-                const recentImpacts = impactHistory.slice(-AI_CONFIG.MAX_HISTORY_FOR_AI);
-                const impactStats = {
-                    total: impactHistory.length,
-                    last24h: impactHistory.filter(i => (now - i.time) < 86400000).length,
-                    mild: impactHistory.filter(i => i.a_peak < 20).length,
-                    moderate: impactHistory.filter(i => i.a_peak >= 20 && i.a_peak < 40).length,
-                    severe: impactHistory.filter(i => i.a_peak >= 40).length,
-                    avgISS: impactHistory.length > 0 ? (impactHistory.reduce((s, i) => s + (i.iss || 0), 0) / impactHistory.length).toFixed(2) : 0,
-                    maxAccel: Math.max(0, ...impactHistory.map(i => i.a_peak || 0)).toFixed(1),
-                    maxRotation: Math.max(0, ...impactHistory.map(i => i.alpha_peak || 0)).toFixed(0)
-                };
-
-                const dataPayload = {
-                    user_context: { activity: "General Use", user_type: "Adult" },
-                    timestamp_utc: new Date().toISOString(),
-                    current_scores: { nrs: { value: parseFloat(currentNRS.toFixed(2)) }, awe: { value: parseFloat(currentAWE.toFixed(2)) }, cli: { value: parseFloat(cli.toFixed(2)) }, latest_iss: { value: parseFloat(latestISS.toFixed(2)) } },
-                    impact_statistics_7_days: { total_impacts: impactStats.total, impacts_last_24h: impactStats.last24h, peak_linear_accel_g: parseFloat(impactStats.maxAccel), peak_angular_accel_rad_s2: parseFloat(impactStats.maxRotation), average_iss: parseFloat(impactStats.avgISS), severity_distribution: { mild_under_20g: impactStats.mild, moderate_20_40g: impactStats.moderate, severe_over_40g: impactStats.severe } },
-                    impact_history_recent: recentImpacts.map(i => ({ time_utc: new Date(i.time).toISOString(), linear_accel_g: i.a_peak, angular_accel_rad_s2: i.alpha_peak, iss: i.iss, nrs_at_impact: i.nrs })),
-                    reference_thresholds: { concussion_risk_linear_g: 75, concussion_risk_angular_rad_s2: 4500 }
-                };
-
-                const systemPrompt = `You are an AI Health & Safety Advisor specializing in interpreting biomechanical data from head-mounted sensors. Your core directives are: 1. **Objective Risk Assessment:** Provide a calm, objective, data-driven assessment. Avoid sensational language. 2. **Balanced Perspective:** Explicitly identify low-risk situations where continued activity is appropriate. Not every impact requires stopping. 3. **General Audience:** Frame advice for a general user (cyclist, worker, child). Avoid technical jargon. 4. **Data-Driven:** Base your entire analysis strictly on the JSON data provided. 5. **Action-Oriented:** Provide clear, simple, practical steps, including reassurance when risk is low. 6. **Mandatory Disclaimer:** Conclude every response with the provided disclaimer.`;
-                const userPrompt = `Analyze the provided head impact data and give a safety assessment. <CONTEXT> The user is a general consumer, not necessarily a professional athlete. The activity is: ${dataPayload.user_context.activity}. </CONTEXT> <DATA> ${JSON.stringify(dataPayload, null, 2)} </DATA> <INSTRUCTIONS> 1. **Task:** Based on the JSON data, provide a safety assessment. 2. **Output Format:** Your entire response must be in GitHub-flavored Markdown. 3. **Tone:** Calm, informative, and reassuring, not alarmist. 4. **Structure and Risk Levels:** Use this exact structure and definitions: - \`### 📊 Risk Level\` (Choose ONE: **Negligible**, **Low**, **Moderate**, or **High**.) - \`### 📝 Key Observations\` (Explain *why*.) - \`### ✅ Recommended Actions\` (For Negligible/Low Risk, MUST include: **"No immediate action is needed. You can safely continue your activity."**) - \`### 👀 Symptoms to Watch For (As a Precaution)\` - \`### 🚶‍♀️ Guidance on Activities\` - \`---\` - \`*DISCLAIMER: This AI assessment is for demonstration purposes only and is not a substitute for professional medical advice. Always consult a qualified medical professional for any health concerns or before making any decisions related to your health or treatment. If you believe you have a medical emergency, call 911 immediately.*\` </INSTRUCTIONS>`;
-                
-                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${AI_CONFIG.GROQ_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: AI_CONFIG.GROQ_MODEL,
-                        messages: [ { role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt } ],
-                        temperature: 0.3, max_tokens: 500
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(`API Error ${response.status}: ${errorData.error?.message || response.statusText}`);
-                }
-
-                const data = await response.json();
-                const diagnosisMarkdown = data.choices[0].message.content;
-                const diagnosisHtml = marked.parse(diagnosisMarkdown);
-                showCustomAlert(diagnosisHtml, true);
-                
-            } catch (error) {
-                console.error('Assessment error:', error);
-                let errorMessage = 'Assessment Error:\n\n';
-                if (error.message.includes('401')) errorMessage += '❌ Invalid API Key\n\nPlease check your Groq API key in the script.';
-                else if (error.message.includes('fetch')) errorMessage += '🌐 Network Error\n\nPlease check your internet connection.';
-                else errorMessage += `❌ ${error.message}`;
-                showCustomAlert(errorMessage);
-            } finally {
-                assessmentInProgress = false;
-                aiDiagnosisButton.disabled = false;
-                aiDiagnosisButton.textContent = 'Get AI Assessment';
-            }
-        }
-
         function processImpact(impact) {
             cli = CLI_DECAY * cli + (1 - CLI_DECAY) * impact.iss;
             const now = Date.now();
             let awe = 0;
-            impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / 86400000; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); });
+            impactHistory.forEach(imp => {
+                const daysAgo = (now - imp.time) / 86400000;
+                awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo);
+            });
             currentAWE = awe;
             latestISS = impact.iss;
             const nrs = 0.5 * impact.iss + 0.3 * awe + 0.2 * cli;
-            currentNRS = Math.round(nrs * 10) / 10;
-            impact.nrs = currentNRS; impact.awe = awe; impact.cli = cli;
-            nrsScoreEl.textContent = currentNRS.toFixed(1);
+            const nrsRounded = Math.round(nrs * 10) / 10;
+            currentNRS = nrsRounded;
+
+            impact.nrs = nrsRounded;
+            impact.awe = awe;
+            impact.cli = cli;
+
+            nrsScoreEl.textContent = nrsRounded.toFixed(1);
             aweScoreEl.textContent = awe.toFixed(2);
             cliScoreEl.textContent = cli.toFixed(2);
-            updateRiskLevel(currentNRS);
-            
-            if (currentNRS >= AI_CONFIG.AUTO_ASSESS_THRESHOLD) {
-                console.log(`High impact detected (NRS: ${currentNRS}), triggering auto-assessment...`);
-                setTimeout(() => performAssessment('auto'), 1500);
+            updateRiskLevel(nrsRounded);
+
+            // Restore non-AI alert for significant impacts
+            if (nrsRounded >= 8) {
+                showCustomAlert(`SEVERE IMPACT!\nNRS: ${nrsRounded}\nISS: ${impact.iss.toFixed(2)}\nAccel: ${impact.a_peak.toFixed(1)}g\nRotation: ${impact.alpha_peak.toFixed(0)} rad/s²\n\nImmediate evaluation recommended.`);
+            } else if (nrsRounded >= 6) {
+                showCustomAlert(`High Risk Detected!\nNRS: ${nrsRounded}\nISS: ${impact.iss.toFixed(2)}\nAccel: ${impact.a_peak.toFixed(1)}g\nRotation: ${impact.alpha_peak.toFixed(0)} rad/s²\n\nPlease monitor for symptoms.`);
             }
+            
             updateNRSRealtime();
             startNRSUpdateInterval();
         }
-
-        aiDiagnosisButton.addEventListener('click', () => performAssessment('manual'));
 
     </script>
 </body>
