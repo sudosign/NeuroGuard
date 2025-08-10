@@ -130,19 +130,24 @@
         .modal-content {
             background-color: #1f1f1f;
             margin: 10% auto;
-            padding: 24px;
+            padding: 1px; /* Changed for alert card */
             border-radius: 12px;
             box-shadow: 0 10px 15px rgba(0,0,0,0.3);
-            max-width: 600px;
+            max-width: 500px;
             animation: fadeIn 0.3s ease-in-out;
             color: #e0e0e0;
+            border-top: 4px solid transparent;
         }
+        .modal-content-severe { border-top-color: #ef4444; }
+        .modal-content-high { border-top-color: #f59e0b; }
+
         .close-button {
             color: #888;
             float: right;
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
+            padding: 0 1rem;
         }
         .close-button:hover, .close-button:focus {
             color: #ccc;
@@ -152,6 +157,42 @@
             from { opacity: 0; transform: translateY(-20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* New Alert Card Styles */
+        .alert-card {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .alert-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .alert-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .alert-subtitle { font-size: 1rem; color: #a0a0a0; margin-bottom: 1.5rem; }
+        .alert-score-box {
+            background-color: #2c2c2c;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .alert-score-label { font-size: 0.875rem; color: #a0a0a0; }
+        .alert-score-value { font-size: 2.25rem; font-weight: bold; line-height: 1; }
+        .alert-high .alert-score-value { color: #f59e0b; }
+        .alert-severe .alert-score-value { color: #ef4444; }
+        .alert-section {
+            text-align: left;
+            margin-top: 1.5rem;
+        }
+        .alert-section h4 {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #444;
+            padding-bottom: 0.5rem;
+        }
+        .alert-section ul {
+            list-style-type: '✓  ';
+            padding-left: 1rem;
+            color: #d0d0d0;
+        }
+        .alert-section li { margin-bottom: 0.5rem; }
+
         .live-feed-box {
             background-color: #2c2c2c;
             color: #a0a0a0;
@@ -172,140 +213,40 @@
         .risk-high { background-color: #c2410c; color: white; }
         .risk-severe { background-color: #991b1b; color: white; }
 
-        .chart-container {
-            height: 20rem;
-            position: relative;
-        }
+        .chart-container { height: 20rem; position: relative; }
         canvas { display: block; }
-        
-        .fullscreen-modal {
-            display: none;
-            position: fixed;
-            z-index: 200;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #121212;
-        }
-        
-        .fullscreen-chart-container {
-            width: 100%;
-            height: calc(100% - 60px);
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        
-        .fullscreen-header {
-            height: 60px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            background-color: #1f1f1f;
-            border-bottom: 1px solid #333;
-        }
-        
-        .fullscreen-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #e0e0e0;
-        }
-        
-        .fullscreen-controls {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .fullscreen-btn {
-            padding: 8px 16px;
-            background-color: #2c2c2c;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .fullscreen-btn:hover {
-            background-color: #3c3c3c;
-        }
-        
-        .chart-wrapper {
-            position: relative;
-            user-select: none;
-        }
-        
-        .chart-hint {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            font-size: 0.7rem;
-            color: rgba(160, 160, 160, 0.5);
-            pointer-events: none;
-        }
-        
-        .risk-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-        }
-        
-        @media (max-width: 768px) {
-            .risk-grid { grid-template-columns: 1fr; }
-        }
-        
-        .risk-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .shortcuts-grid {
-            display: grid;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .shortcut-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem;
-            background-color: #2c2c2c;
-            border-radius: 0.5rem;
-            border: 1px solid #444;
-        }
-        
-        .shortcut-key {
-            font-family: 'Courier New', monospace;
-            background-color: #1a1a1a;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            border: 1px solid #555;
-            color: #3b82f6;
+        .fullscreen-modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: #121212; }
+        .fullscreen-chart-container { width: 100%; height: calc(100% - 60px); padding: 20px; box-sizing: border-box; }
+        .fullscreen-header { height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background-color: #1f1f1f; border-bottom: 1px solid #333; }
+        .fullscreen-title { font-size: 1.5rem; font-weight: bold; color: #e0e0e0; }
+        .fullscreen-controls { display: flex; gap: 10px; }
+        .fullscreen-btn { padding: 8px 16px; background-color: #2c2c2c; color: #e0e0e0; border: 1px solid #444; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        .fullscreen-btn:hover { background-color: #3c3c3c; }
+        .chart-wrapper { position: relative; user-select: none; }
+        .chart-hint { position: absolute; bottom: 5px; right: 5px; font-size: 0.7rem; color: rgba(160, 160, 160, 0.5); pointer-events: none; }
+        .risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        @media (max-width: 768px) { .risk-grid { grid-template-columns: 1fr; } }
+        .risk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .shortcuts-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+        .shortcut-item { display: flex; justify-content: space-between; padding: 0.75rem; background-color: #2c2c2c; border-radius: 0.5rem; border: 1px solid #444; }
+        .shortcut-key { font-family: 'Courier New', monospace; background-color: #1a1a1a; padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #555; color: #3b82f6; font-weight: 600; }
+        .shortcut-description { color: #e0e0e0; }
+        .help-button { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .help-button:hover { background-color: rgba(59, 130, 246, 0.3); border-color: rgba(59, 130, 246, 0.5); }
+        .scat-button {
+            display: block;
+            margin-top: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: #3b82f6; /* Blue-500 */
+            color: white;
+            text-decoration: none;
             font-weight: 600;
-        }
-        
-        .shortcut-description {
-            color: #e0e0e0;
-        }
-        
-        .help-button {
-            background-color: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            padding: 0.5rem 1rem;
             border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
+            text-align: center;
+            transition: background-color 0.2s ease-in-out;
         }
-        
-        .help-button:hover {
-            background-color: rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.5);
+        .scat-button:hover {
+            background-color: #2563eb; /* Blue-600 */
         }
     </style>
 </head>
@@ -334,9 +275,14 @@
         <div id="risk-dashboard" class="bg-gray-800 p-4 rounded-xl shadow-xl mb-6">
             <div class="risk-header">
                 <h2 class="text-lg font-semibold text-gray-200">Headband Impact Risk Assessment</h2>
-                <button id="clearHistoryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
-                    Clear History
-                </button>
+                <div class="flex items-center gap-4">
+                    <a href="https://cattonline.com/scat" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
+                        SCAT5 Tool
+                    </a>
+                    <button id="clearHistoryButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-4 rounded-lg text-sm transition duration-300">
+                        Clear History
+                    </button>
+                </div>
             </div>
             <div class="risk-grid mb-4">
                 <div class="bg-gray-700 p-3 rounded-lg">
@@ -417,9 +363,9 @@
 
         <!-- Alert Modal -->
         <div id="alert-modal" class="modal">
-            <div class="modal-content">
+            <div id="alert-modal-content" class="modal-content">
                 <span class="close-button" onclick="document.getElementById('alert-modal').style.display='none'">&times;</span>
-                <div id="alert-message" class="text-gray-300 whitespace-pre-line"></div>
+                <div id="alert-message"></div>
             </div>
         </div>
         
@@ -479,12 +425,85 @@
         let isPaused = false;
         let latestSensorData = null;
 
-        function showCustomAlert(content) {
+        // --- MODIFIED FUNCTION WITH BUG FIX ---
+        function showCustomAlert(type, data) {
             const modal = document.getElementById('alert-modal');
+            const modalContent = document.getElementById('alert-modal-content');
             const alertMessage = document.getElementById('alert-message');
-            alertMessage.textContent = content;
+            
+            let alertHtml = '';
+            
+            modalContent.classList.remove('modal-content-high', 'modal-content-severe');
+
+            if (type === 'high') {
+                modalContent.classList.add('modal-content-high');
+                alertHtml = `
+                    <div class="alert-card alert-high">
+                        <div class="alert-icon">⚠️</div>
+                        <h3 class="alert-title">High Impact Warning</h3>
+                        <p class="alert-subtitle">A significant impact has been recorded.</p>
+                        <div class="alert-score-box">
+                            <div class="alert-score-label">Neurological Risk Score (NRS)</div>
+                            <div class="alert-score-value">${data.nrs.toFixed(1)}</div>
+                        </div>
+                        <div class="alert-section">
+                            <h4>Recommended Actions</h4>
+                            <ul>
+                                <li><strong>Pause your current activity</strong> for a few minutes.</li>
+                                <li>Rest and check if you feel any discomfort.</li>
+                                <li>Avoid further significant impacts today if possible.</li>
+                            </ul>
+                        </div>
+                        <div class="alert-section">
+                            <h4>Key Symptoms to Watch For</h4>
+                            <ul>
+                                <li>Headache or a feeling of "pressure"</li>
+                                <li>Dizziness or balance problems</li>
+                                <li>Nausea or sensitivity to light/noise</li>
+                            </ul>
+                        </div>
+                        <a href="https://cattonline.com/scat" target="_blank" rel="noopener noreferrer" class="scat-button">Perform a SCAT5 Assessment</a>
+                    </div>
+                `;
+            } else if (type === 'severe') {
+                modalContent.classList.add('modal-content-severe');
+                alertHtml = `
+                    <div class="alert-card alert-severe">
+                        <div class="alert-icon">🚨</div>
+                        <h3 class="alert-title">Severe Impact Alert</h3>
+                        <p class="alert-subtitle">This impact level requires immediate attention.</p>
+                        <div class="alert-score-box">
+                            <div class="alert-score-label">Neurological Risk Score (NRS)</div>
+                            <div class="alert-score-value">${data.nrs.toFixed(1)}</div>
+                        </div>
+                        <div class="alert-section">
+                            <h4>Recommended Actions</h4>
+                            <ul>
+                                <li><strong>Stop your current activity immediately.</strong></li>
+                                <li>Rest in a safe place and have someone stay with you.</li>
+                                <li>Consider seeking professional medical evaluation as a precaution.</li>
+                            </ul>
+                        </div>
+                        <div class="alert-section">
+                            <h4>Key Symptoms to Watch For</h4>
+                            <ul>
+                                <li>Worsening headache or confusion</li>
+                                <li>Vomiting or extreme drowsiness</li>
+                                <li>Any loss of consciousness, even brief</li>
+                            </ul>
+                        </div>
+                        <a href="https://cattonline.com/scat" target="_blank" rel="noopener noreferrer" class="scat-button">Perform a SCAT5 Assessment</a>
+                    </div>
+                `;
+            } else {
+                // Default case for simple text alerts
+                alertHtml = `<div style="padding: 1.5rem; text-align: center; font-size: 1.25rem;">${type}</div>`;
+            }
+
+            alertMessage.innerHTML = alertHtml;
             modal.style.display = 'block';
         }
+        // --- END OF MODIFIED FUNCTION ---
 
         const SERVICE_UUID = "12345678-1234-1234-1234-123456789abc";
         const CHARACTERISTIC_UUID = "87654321-4321-4321-4321-cba987654321";
@@ -538,10 +557,10 @@
         const AWE_DECAY_RATE = 0.4;
         let lastGyro = 0;
 
-        const WHISE_THRESHOLD = 0.05;
+        const WHISE_THRESHOLD = 0.07;
         const MIN_LINEAR_G = 1;
         const MIN_ROTATIONAL_RAD_S2 = 75;
-        const DEAD_TIME_MS = 3000;
+        const DEAD_TIME_MS = 500;
 
         const AUTO_ZERO_ENABLED = true;
         const STILLNESS_WINDOW_MS = 600;
@@ -683,7 +702,7 @@
         function resetRiskScores() { nrsScoreEl.textContent = "0.0"; nrsLevelEl.className = 'risk-level risk-low'; nrsLevelEl.textContent = 'Low Risk'; aweScoreEl.textContent = "0.0"; cliScoreEl.textContent = "0.0"; currentNRS = 0.0; currentAWE = 0.0; latestISS = 0.0; }
 
         const nrsChart = new Chart(document.getElementById('nrsChartCanvas').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{ label: 'NRS', data: [], borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', borderWidth: 2, fill: true, tension: 0.2, pointRadius: 0, spanGaps: false }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, plugins: { zoom: { zoom: { wheel: { enabled: true, speed: 0.005 }, pinch: { enabled: true }, mode: 'xy' }, pan: { enabled: true, mode: 'xy', speed: 0.0025 } }, legend: { labels: { color: '#e0e0e0', font: { size: 12 } } }, tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(30, 30, 30, 0.9)', titleColor: '#ffffff', bodyColor: '#e0e0e0' } }, scales: { x: { title: { display: true, text: 'Time', color: '#a0a0a0' }, ticks: { color: '#e0e0e0', maxTicksLimit: 8, autoSkip: true }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { min: 0, max: 10, title: { display: true, text: 'NRS', color: '#a0a0a0' }, ticks: { color: '#e0e0e0', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.1)' } } }, elements: { point: { radius: 0 } } } });
-        function updateNRSRealtime() { const now = Date.now(); let awe = 0; impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / 86400000; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); }); currentAWE = awe; const nrs = 0.5 * latestISS + 0.3 * awe + 0.2 * cli; currentNRS = Math.max(0, nrs); nrsScoreEl.textContent = currentNRS.toFixed(1); aweScoreEl.textContent = awe.toFixed(2); updateRiskLevel(currentNRS); nrsChart.data.labels.push(new Date(now).toLocaleTimeString()); nrsChart.data.datasets[0].data.push(currentNRS); if (nrsChart.data.labels.length > NRS_VISIBLE_POINTS) { nrsChart.data.labels.shift(); nrsChart.data.datasets[0].data.shift(); } nrsChart.update('none'); lastNRSUpdate = now; saveImpactHistory(); }
+        function updateNRSRealtime() { const now = Date.now(); let awe = 0; impactHistory.forEach(imp => { const daysAgo = (now - imp.time) / 86400000; awe += imp.iss * Math.exp(-AWE_DECAY_RATE * daysAgo); }); currentAWE = awe; const nrs = 0.35 * latestISS + 0.35 * awe + 0.2 * cli; currentNRS = Math.max(0, nrs); nrsScoreEl.textContent = currentNRS.toFixed(1); aweScoreEl.textContent = awe.toFixed(2); updateRiskLevel(currentNRS); nrsChart.data.labels.push(new Date(now).toLocaleTimeString()); nrsChart.data.datasets[0].data.push(currentNRS); if (nrsChart.data.labels.length > NRS_VISIBLE_POINTS) { nrsChart.data.labels.shift(); nrsChart.data.datasets[0].data.shift(); } nrsChart.update('none'); lastNRSUpdate = now; saveImpactHistory(); }
         function startNRSUpdateInterval() { if (nrsUpdateInterval) clearInterval(nrsUpdateInterval); nrsUpdateInterval = setInterval(updateNRSRealtime, NRS_UPDATE_INTERVAL); }
         startNRSUpdateInterval();
 
@@ -707,7 +726,7 @@
         let lastFrame = 0; function rafCommit(t) { if (t - lastFrame >= (1000 / RENDER_FPS)) { for (const [chart, buf] of chartBuffers.entries()) commitChart(chart, buf); lastFrame = t; } requestAnimationFrame(rafCommit); } requestAnimationFrame(rafCommit);
 
         function smoothData(rawData, historyBuffer) { ['x', 'y', 'z'].forEach(axis => { historyBuffer[axis].push(rawData[axis]); if (historyBuffer[axis].length > SMOOTHING_WINDOW_SIZE) { historyBuffer[axis].shift(); } }); const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length; return { x: avg(historyBuffer.x), y: avg(historyBuffer.y), z: avg(historyBuffer.z) }; }
-        function detectImpact(a, g) { if (impactDetectionDisabled || isPaused) return; const now = Date.now(); if (now - lastImpactTime < DEAD_TIME_MS) return; const a_mag_mss = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2); const a_mag_g = a_mag_mss / 9.81; const g_multiplied = { x: g.x * GYRO_MULTIPLIER, y: g.y * GYRO_MULTIPLIER, z: g.z * GYRO_MULTIPLIER }; const omega_mag = Math.sqrt(g_multiplied.x ** 2 + g_multiplied.y ** 2 + g_multiplied.z ** 2); const alpha_mag = (omega_mag - (lastGyro || 0)) / 0.01; lastGyro = omega_mag; if (a_mag_g < MIN_LINEAR_G) return; if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return; const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000); if (whise >= WHISE_THRESHOLD) { lastImpactTime = now; const iss = Math.log10(1 + a_mag_g) * (1 + Math.abs(alpha_mag) / 5000) * 1.3; const impact = { time: now, a_peak: a_mag_g, alpha_peak: Math.abs(alpha_mag), iss: parseFloat(iss.toFixed(2)) }; impactHistory.push(impact); saveImpactHistory(); processImpact(impact); } }
+        function detectImpact(a, g) { if (impactDetectionDisabled || isPaused) return; const now = Date.now(); if (now - lastImpactTime < DEAD_TIME_MS) return; const a_mag_mss = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2); const a_mag_g = a_mag_mss / 9.81; const g_multiplied = { x: g.x * GYRO_MULTIPLIER, y: g.y * GYRO_MULTIPLIER, z: g.z * GYRO_MULTIPLIER }; const omega_mag = Math.sqrt(g_multiplied.x ** 2 + g_multiplied.y ** 2 + g_multiplied.z ** 2); const alpha_mag = (omega_mag - (lastGyro || 0)) / 0.01; lastGyro = omega_mag; if (a_mag_g < MIN_LINEAR_G) return; if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return; const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000); if (whise >= WHISE_THRESHOLD) { lastImpactTime = now; const iss = Math.log10(1 + a_mag_g) * (1 + Math.abs(alpha_mag) / 5000) * 0.8; const impact = { time: now, a_peak: a_mag_g, alpha_peak: Math.abs(alpha_mag), iss: parseFloat(iss.toFixed(2)) }; impactHistory.push(impact); saveImpactHistory(); processImpact(impact); } }
 
         function onDisconnected() { updateConnectionStatus('disconnected'); pauseButton.classList.add('hidden'); impactDetectionDisabled = true; isPaused = false; }
         async function connectToBle() { try { updateConnectionStatus('connecting'); if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported."); bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ name: DEVICE_NAME }], optionalServices: [SERVICE_UUID] }); bleDevice.addEventListener('gattserverdisconnected', onDisconnected); const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(SERVICE_UUID); bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID); await bleCharacteristic.startNotifications(); bleCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged); updateConnectionStatus('connected'); pauseButton.classList.remove('hidden'); connectedAt = Date.now(); impactDetectionDisabled = true; setTimeout(() => { instantZeroSensors(); impactDetectionDisabled = false; }, 500); } catch (error) { console.error("BLE Connection error:", error); updateConnectionStatus('disconnected'); if (error.name === 'NotFoundError') { showCustomAlert("No device selected."); } else { showCustomAlert("BLE Error: " + error.message); } } }
@@ -766,7 +785,7 @@
             });
             currentAWE = awe;
             latestISS = impact.iss;
-            const nrs = 0.5 * impact.iss + 0.3 * awe + 0.2 * cli;
+            const nrs = 0.35 * impact.iss + 0.35 * awe + 0.2 * cli;
             const nrsRounded = Math.round(nrs * 10) / 10;
             currentNRS = nrsRounded;
 
@@ -779,11 +798,10 @@
             cliScoreEl.textContent = cli.toFixed(2);
             updateRiskLevel(nrsRounded);
 
-            // Restore non-AI alert for significant impacts
             if (nrsRounded >= 8) {
-                showCustomAlert(`SEVERE IMPACT!\nNRS: ${nrsRounded}\nISS: ${impact.iss.toFixed(2)}\nAccel: ${impact.a_peak.toFixed(1)}g\nRotation: ${impact.alpha_peak.toFixed(0)} rad/s²\n\nImmediate evaluation recommended.`);
+                showCustomAlert('severe', { nrs: nrsRounded });
             } else if (nrsRounded >= 6) {
-                showCustomAlert(`High Risk Detected!\nNRS: ${nrsRounded}\nISS: ${impact.iss.toFixed(2)}\nAccel: ${impact.a_peak.toFixed(1)}g\nRotation: ${impact.alpha_peak.toFixed(0)} rad/s²\n\nPlease monitor for symptoms.`);
+                showCustomAlert('high', { nrs: nrsRounded });
             }
             
             updateNRSRealtime();
