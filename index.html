@@ -530,7 +530,7 @@
 
         const SMOOTHING_WINDOW_SIZE = 7;
         const VISIBLE_DATA_POINTS = 400;
-        const NRS_VISIBLE_POINTS = 360;
+        const NRS_VISIBLE_POINTS = 30;
         const dataPointsPerSecond = 100;
         const Y_BUFFER_PERCENTAGE = 0.15;
         const MIN_Y_RANGE = 4;
@@ -557,13 +557,13 @@
         const AWE_DECAY_RATE = 0.4;
         let lastGyro = 0;
 
-        const WHISE_THRESHOLD = 0.07;
+        const WHISE_THRESHOLD = 0.1;
         const MIN_LINEAR_G = 1;
-        const MIN_ROTATIONAL_RAD_S2 = 75;
-        const DEAD_TIME_MS = 500;
+        const MIN_ROTATIONAL_RAD_S2 = 150;
+        const DEAD_TIME_MS = 770;
 
         const AUTO_ZERO_ENABLED = true;
-        const STILLNESS_WINDOW_MS = 600;
+        const STILLNESS_WINDOW_MS = 250;
         const AUTO_ZERO_HOLD_MS = 0;
         const AUTO_ZERO_COOLDOWN_MS = 250;
         const AUTO_ZERO_MIN_UPTIME_MS = 100;
@@ -680,7 +680,7 @@
             if (impactHistory.length > 0) {
                 const latestImpact = impactHistory[impactHistory.length - 1];
                 latestISS = latestImpact.iss;
-                const nrs = 0.5 * latestImpact.iss + 0.3 * awe + 0.2 * cli;
+                const nrs = 0.35 * impact.iss + 0.35 * awe + 0.2 * cli;
                 currentNRS = Math.round(nrs * 10) / 10;
                 nrsScoreEl.textContent = currentNRS.toFixed(1);
                 aweScoreEl.textContent = awe.toFixed(2);
@@ -726,7 +726,7 @@
         let lastFrame = 0; function rafCommit(t) { if (t - lastFrame >= (1000 / RENDER_FPS)) { for (const [chart, buf] of chartBuffers.entries()) commitChart(chart, buf); lastFrame = t; } requestAnimationFrame(rafCommit); } requestAnimationFrame(rafCommit);
 
         function smoothData(rawData, historyBuffer) { ['x', 'y', 'z'].forEach(axis => { historyBuffer[axis].push(rawData[axis]); if (historyBuffer[axis].length > SMOOTHING_WINDOW_SIZE) { historyBuffer[axis].shift(); } }); const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length; return { x: avg(historyBuffer.x), y: avg(historyBuffer.y), z: avg(historyBuffer.z) }; }
-        function detectImpact(a, g) { if (impactDetectionDisabled || isPaused) return; const now = Date.now(); if (now - lastImpactTime < DEAD_TIME_MS) return; const a_mag_mss = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2); const a_mag_g = a_mag_mss / 9.81; const g_multiplied = { x: g.x * GYRO_MULTIPLIER, y: g.y * GYRO_MULTIPLIER, z: g.z * GYRO_MULTIPLIER }; const omega_mag = Math.sqrt(g_multiplied.x ** 2 + g_multiplied.y ** 2 + g_multiplied.z ** 2); const alpha_mag = (omega_mag - (lastGyro || 0)) / 0.01; lastGyro = omega_mag; if (a_mag_g < MIN_LINEAR_G) return; if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return; const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000); if (whise >= WHISE_THRESHOLD) { lastImpactTime = now; const iss = Math.log10(1 + a_mag_g) * (1 + Math.abs(alpha_mag) / 5000) * 0.8; const impact = { time: now, a_peak: a_mag_g, alpha_peak: Math.abs(alpha_mag), iss: parseFloat(iss.toFixed(2)) }; impactHistory.push(impact); saveImpactHistory(); processImpact(impact); } }
+        function detectImpact(a, g) { if (impactDetectionDisabled || isPaused) return; const now = Date.now(); if (now - lastImpactTime < DEAD_TIME_MS) return; const a_mag_mss = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2); const a_mag_g = a_mag_mss / 9.81; const g_multiplied = { x: g.x * GYRO_MULTIPLIER, y: g.y * GYRO_MULTIPLIER, z: g.z * GYRO_MULTIPLIER }; const omega_mag = Math.sqrt(g_multiplied.x ** 2 + g_multiplied.y ** 2 + g_multiplied.z ** 2); const alpha_mag = (omega_mag - (lastGyro || 0)) / 0.01; lastGyro = omega_mag; if (a_mag_g < MIN_LINEAR_G) return; if (Math.abs(alpha_mag) < MIN_ROTATIONAL_RAD_S2) return; const whise = 0.4 * (a_mag_g / 100) + 0.6 * (Math.abs(alpha_mag) / 6000); if (whise >= WHISE_THRESHOLD) { lastImpactTime = now; const iss = Math.log10(1 + a_mag_g * 0.8) * (1 + Math.abs(alpha_mag) / 4500) * 0.75; const impact = { time: now, a_peak: a_mag_g, alpha_peak: Math.abs(alpha_mag), iss: parseFloat(iss.toFixed(2)) }; impactHistory.push(impact); saveImpactHistory(); processImpact(impact); } }
 
         function onDisconnected() { updateConnectionStatus('disconnected'); pauseButton.classList.add('hidden'); impactDetectionDisabled = true; isPaused = false; }
         async function connectToBle() { try { updateConnectionStatus('connecting'); if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported."); bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ name: DEVICE_NAME }], optionalServices: [SERVICE_UUID] }); bleDevice.addEventListener('gattserverdisconnected', onDisconnected); const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService(SERVICE_UUID); bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID); await bleCharacteristic.startNotifications(); bleCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged); updateConnectionStatus('connected'); pauseButton.classList.remove('hidden'); connectedAt = Date.now(); impactDetectionDisabled = true; setTimeout(() => { instantZeroSensors(); impactDetectionDisabled = false; }, 500); } catch (error) { console.error("BLE Connection error:", error); updateConnectionStatus('disconnected'); if (error.name === 'NotFoundError') { showCustomAlert("No device selected."); } else { showCustomAlert("BLE Error: " + error.message); } } }
